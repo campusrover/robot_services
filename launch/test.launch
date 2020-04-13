@@ -1,0 +1,4 @@
+<launch>
+    <node pkg="unity_bridge" name="map_bridge" type="map_bridge.py" output="screen"/>
+    <node pkg="map_server" name="map_server" type="map_server" args="$(find rover_4_core)/nav_params/lab_map.yaml"/>
+</launch>
