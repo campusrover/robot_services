@@ -33,8 +33,8 @@ def consolodate_lines(lines, distance_diff, angle_diff):
     # steps:
 
     # 1. convert all line tuples in Line_Segment objects. remove any points that are masquerading as lines
-    ls = [Line_Segment(l, i) for l, i in zip(lines, range(len(lines))) if Line_Segment(l).length > 0]
-    next_id = len(lines)
+    ls = [Line_Segment(l, i+1) for l, i in zip(lines, range(len(lines))) if Line_Segment(l).length > 0]
+    next_id = len(lines) + 1
     line_hash = {}
     # 2. hash every line with their endpoints being the keys
     for l in ls:
@@ -54,32 +54,35 @@ def consolodate_lines(lines, distance_diff, angle_diff):
                     for cl in line_hash[n]:
                         # if there is another segment with a similar enough slope that is close enough to the line, then pair them together and put them in a queue to be merged.
                         theta_diff = abs(cl.theta - l.theta)
-                        if  theta_diff < angle_diff and cl != l: 
-                            close_lines.append((theta_diff, cl))
+                        if  theta_diff < angle_diff and cl != l and cl not in close_lines: 
+                            close_lines.append(cl)
             if close_lines:
-                close_lines = sorted(close_lines, key=lambda x: (x[0], -x[1].length))
-                # choose the nearby line that has the most similar slope. if a tie, choose the longest
-                merge_pal = close_lines[0][1]
-                merge_queue.append((l, merge_pal))
-                #print("merging {} ({}) and {} ({})!".format(l, l.theta, merge_pal, merge_pal.theta))
+                # sort the close lines based on angle difference, then length
+                close_lines = sorted(close_lines, key=lambda x: (abs(x.theta - l.theta), -x.length))
+                merge_queue.append((l, close_lines))
                 # remove from hash
                 line_hash[l.point1].remove(l)
                 line_hash[l.point2].remove(l)
-                line_hash[merge_pal.point1].remove(merge_pal)
-                line_hash[merge_pal.point2].remove(merge_pal)
-                # remove from list
                 ls.pop(i)
-                ls.pop(ls.index(merge_pal))
+                for merge_pal in close_lines:
+                    print(merge_pal)
+                    line_hash[merge_pal.point1].remove(merge_pal)
+                    line_hash[merge_pal.point2].remove(merge_pal)
+                    ls.pop(ls.index(merge_pal))
+                # remove from list
             else:
                 i += 1
     # 4. go through the queue of pairs to be merged and merge them. put the resulting line segments back into hash and list. 
         if merge_queue:
             print(len(merge_queue))
             for pair in merge_queue:
-                merged = merge_lines(pair[0], pair[1])
+                m = pair[0]
+                #print(pair[1])
+                for l2 in pair[1]:
+                    m = merge_lines(m, l2)
+                merged = m
                 merged.id = next_id
                 next_id += 1
-                #print('merged {} and {} into {}'.format(pair[0], pair[1], merged))
                 ls.append(merged)
                 line_hash[merged.point1] = line_hash.get(merged.point1, []) + [merged]
                 line_hash[merged.point2] = line_hash.get(merged.point2, []) + [merged]

@@ -80,6 +80,9 @@ class Line_Segment():
 
         return [Point(p) for p in points]
 
+    def __eq__(self, other):
+        return self.id == other.id and self.point1 == other.point1 and self.point2 == other.point2
+
     def __repr__(self):
         # prints as "[(x1, y1), (x2, y2)]"
         if not self.id:
@@ -138,6 +141,7 @@ if __name__ == '__main__':
     st += [4]
     st.remove(2)
     print(st)
+    print(l == l)
     """
     print("l length: ", l.point1.distance(l.point2))
     t = l.point2.angle(l.point1)
