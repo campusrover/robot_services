@@ -2,8 +2,8 @@ import math
 
 class Point():
     def __init__(self, point_2tuple):
-        self.x = point_2tuple[0]
-        self.y = point_2tuple[1]
+        self.x = int(point_2tuple[0])
+        self.y = int(point_2tuple[1])
 
     def distance(self, other_point):
         # returns the distance between this point and the given point
@@ -19,13 +19,20 @@ class Point():
         # creates a copy of this point
         return Point((self.x, self.y))
 
+    def __hash__(self):
+        return (self.x, self.y).__hash__()
+
+    def __eq__(self, other):
+        return self.x == other.x and self.y == other.y
+
     def __repr__(self):
         # print the point as "(x, y)"
         return '({}, {})'.format(self.x, self.y)
 
 
 class Line_Segment():
-    def __init__(self, line_4tuple):
+    def __init__(self, line_4tuple, lid=None):
+        self.id = lid
         self.point1 = Point((line_4tuple[0], line_4tuple[1]))
         self.point2 = Point((line_4tuple[2], line_4tuple[3]))
         self.length = self.point1.distance(self.point2)
@@ -71,11 +78,15 @@ class Line_Segment():
                     y = round(p.y + math.sin(t) * r)
                     points.add((x, y))
 
-        return list(points)
+        return [Point(p) for p in points]
 
     def __repr__(self):
         # prints as "[(x1, y1), (x2, y2)]"
-        return '[{}, {}]'.format(self.point1, self.point2)
+        if not self.id:
+            return '[{}, {}]'.format(self.point1, self.point2)
+        else:
+            return '(#{})[{}, {}]'.format(self.id, self.point1, self.point2)
+
 
 
 def merge_lines(l1, l2):
@@ -83,13 +94,11 @@ def merge_lines(l1, l2):
     gx = (l1.length * (l1.point1.x + l1.point2.x) + l2.length * (l2.point1.x + l2.point2.x)) / (2 * (l1.length + l2.length))
     gy = (l1.length * (l1.point1.y + l1.point2.y) + l2.length * (l2.point1.y + l2.point2.y)) / (2 * (l1.length + l2.length))
     centroid = Point((gx, gy))
-    print("centroid: ", centroid)
     # define the orientation of the new merges line
     if abs(l1.theta - l2.theta) <= math.pi / 2:
         theta = (l1.length * l1.theta + l2.length * l2.theta) / (l1.length + l2.length)
     else:
         theta = (l1.length * l1.theta + l2.length * (l2.theta - math.pi * (l2.theta / abs(l2.theta)))) / (l1.length + l2.length)
-    print("merged angle: ", theta * 180 / math.pi)
     # convert all coordinates to a new frame centered around the cnetroid at angle theta
     # a and b belong to l1, c and d belong to l2.
     # only x converrstions are required 
@@ -101,7 +110,6 @@ def merge_lines(l1, l2):
     # the xmin and xmax of the new endpoints of the merged line
     new_end1 = min(new_coords)
     new_end2 = max(new_coords)
-    print("distances: ", new_end1, new_end2)
     # convert back to normal coordinates
     x1 = gx + (math.cos(theta) * new_end1)
     x2 = gx + (math.cos(theta) * new_end2)
@@ -119,6 +127,17 @@ if __name__ == '__main__':
     # scrap script space to test that parts are working
     l = Line_Segment([0,0,2,2])
     print(l.nearby_points(2))
+    lines = {}
+    lines[l.point1] = l
+    print(lines)
+    lines.pop(l.point1)
+    print(lines)
+    llist = [l]
+    print(llist.index(l))
+    st = [1, 2, 3]
+    st += [4]
+    st.remove(2)
+    print(st)
     """
     print("l length: ", l.point1.distance(l.point2))
     t = l.point2.angle(l.point1)
