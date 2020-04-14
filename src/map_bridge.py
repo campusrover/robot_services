@@ -29,7 +29,7 @@ rospy.init_node("map_bridge")
 map_id = 0
 
 def consolodate_lines(lines, distance_diff, angle_diff):
-    # input: list of 4-tuples representing lines
+    # input: list of 4-tuples representing lines, how close lines need to be together and how similar their angles need to be to be merged
     # steps:
 
     # 1. convert all line tuples in Line_Segment objects. remove any points that are masquerading as lines
@@ -60,32 +60,32 @@ def consolodate_lines(lines, distance_diff, angle_diff):
                 # sort the close lines based on angle difference, then length
                 close_lines = sorted(close_lines, key=lambda x: (abs(x.theta - l.theta), -x.length))
                 merge_queue.append((l, close_lines))
-                # remove from hash
+                # remove l from hash and list
                 line_hash[l.point1].remove(l)
                 line_hash[l.point2].remove(l)
                 ls.pop(i)
+                # remove all the lines l will be merged with from the hash and list
                 for merge_pal in close_lines:
-                    print(merge_pal)
                     line_hash[merge_pal.point1].remove(merge_pal)
                     line_hash[merge_pal.point2].remove(merge_pal)
                     ls.pop(ls.index(merge_pal))
-                # remove from list
             else:
+                # i only increments if l[i] is not merged, becuase if it is merged then l[i] gets popped and l[i+1] becomes l[i]
                 i += 1
     # 4. go through the queue of pairs to be merged and merge them. put the resulting line segments back into hash and list. 
         if merge_queue:
-            print(len(merge_queue))
             for pair in merge_queue:
                 m = pair[0]
-                #print(pair[1])
                 for l2 in pair[1]:
                     m = merge_lines(m, l2)
                 merged = m
                 merged.id = next_id
                 next_id += 1
+                # add new line to the data structures
                 ls.append(merged)
                 line_hash[merged.point1] = line_hash.get(merged.point1, []) + [merged]
                 line_hash[merged.point2] = line_hash.get(merged.point2, []) + [merged]
+            # empty the queue
             merge_queue = []
     # 5. repeat 3 and 4 until an iteration yeilds no pairs to be merged. 
         else:
