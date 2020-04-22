@@ -1,0 +1,5 @@
+<launch>
+<node pkg="practice" name="kirbyPatrol.py" type="kirbyPatrol.py">
+</node>
+<include file="$(find turtlebot3_navigation)/launch/move_base.launch"/>
+</launch>
