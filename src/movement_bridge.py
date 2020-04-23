@@ -19,12 +19,11 @@ rospy.init_node("move_bridge")
 
 def odom_cb(msg):
     p = msg.pose.pose
-    print(p)
     m = msg.twist.twist
     o = euler_from_quaternion([p.orientation.x, p.orientation.y, p.orientation.z, p.orientation.w])
     package = json.dumps({
-        "location": [p.position.x, p.position.y, p.position.z],
-        "orientation": o,
+        "location": [round(x, 3) for x in [p.position.x, p.position.y, p.position.z]],
+        "orientation": [round(x, 3) for x in o],
         "linearvelocity": round(m.linear.x, 3),
         "angularvelocity": round(m.angular.z, 3),
         "odom_id": msg.header.seq,

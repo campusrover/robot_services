@@ -158,13 +158,14 @@ def map_cb(msg):
     #draw_map(walls, width, height, map_num=1)
 
     walls = consolodate_lines(walls, 3, pi / 8, 4)
+    walls = convert_coords(walls, (origin.position.x, origin.position.y), (width, height), res, (map_shift, map_rot))
     
     print("---")
     #draw_map(walls, width, height)  # TODO remove this once this is stable
 
     package = json.dumps({ 
-        "width": width * res,
-        "height": height * res,
+        "width": round(width * res, 3),
+        "height": round(height * res, 3),
         "data": walls,
         "id": map_id, 
         "line_count": len(walls)

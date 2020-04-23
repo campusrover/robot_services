@@ -148,7 +148,7 @@ def convert_coords(lines, origin, size, res, tf):
             new_l[i] = (l[i] - o[i%2]) * res * (-1 if i%2==1 else 1) + trans[i%2] # the pixel coordinate, shifted by the map origin, scaled to meters by resolution, fliped +/- if a y coordinate, and shifted by tf from odom to map]
             # TODO: rotation
 
-        new_lines.append(new_l)
+        new_lines.append([round(x, 3) for x in new_l])
 
     return new_lines
 
