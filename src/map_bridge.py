@@ -12,6 +12,7 @@ this node:
 Dependancies: numpy, python-opencv, redis-py, Pillow (for debug), rospy
 """
 import rospy
+import tf
 import json
 import redis
 import cv2
@@ -21,22 +22,20 @@ from os.path import dirname, realpath
 from os import sep
 import sys
 from PIL import Image, ImageDraw
-from tavares_padilha_line_merge import Point, Line_Segment, merge_lines
+from tavares_padilha_line_merge import Point, Line_Segment, merge_lines, convert_coords
+from math import pi
 
-redis = redis.Redis()
-redis_key = "Map"
-rospy.init_node("map_bridge")
-map_id = 0
 
-def consolodate_lines(lines, distance_diff, angle_diff):
+
+def consolodate_lines(lines, distance_diff, angle_diff, min_len):
     # input: list of 4-tuples representing lines, how close lines need to be together and how similar their angles need to be to be merged
     # steps:
 
     # 1. convert all line tuples in Line_Segment objects. remove any points that are masquerading as lines
-    ls = [Line_Segment(l, i+1) for l, i in zip(lines, range(len(lines))) if Line_Segment(l).length > 0]
+    ls = sorted([Line_Segment(l, i+1) for l, i in zip(lines, range(len(lines))) if Line_Segment(l).length > 0], key=lambda x: x.length, reverse=True)
     next_id = len(lines) + 1
     line_hash = {}
-    # 2. hash every line with their endpoints being the keys
+    # 2. hash every line with their endpoints being the keys. baskically a bucket hash map using python lists inside dicts
     for l in ls:
         line_hash[l.point1] = line_hash.get(l.point1, []) + [l]
         line_hash[l.point2] = line_hash.get(l.point2, []) + [l]
@@ -53,7 +52,10 @@ def consolodate_lines(lines, distance_diff, angle_diff):
                 if line_hash.get(n, None):
                     for cl in line_hash[n]:
                         # if there is another segment with a similar enough slope that is close enough to the line, then pair them together and put them in a queue to be merged.
-                        theta_diff = abs(cl.theta - l.theta)
+                        larger_theta = max(cl.theta, l.theta)
+                        smaller_theta = min(cl.theta, l.theta)
+                        alt_theta = smaller_theta + pi
+                        theta_diff = min(larger_theta - smaller_theta, alt_theta - larger_theta)
                         if  theta_diff < angle_diff and cl != l and cl not in close_lines: 
                             close_lines.append(cl)
             if close_lines:
@@ -83,6 +85,7 @@ def consolodate_lines(lines, distance_diff, angle_diff):
                 next_id += 1
                 # add new line to the data structures
                 ls.append(merged)
+                ls = sorted(ls, key=lambda x: x.length, reverse=True)
                 line_hash[merged.point1] = line_hash.get(merged.point1, []) + [merged]
                 line_hash[merged.point2] = line_hash.get(merged.point2, []) + [merged]
             # empty the queue
@@ -92,24 +95,26 @@ def consolodate_lines(lines, distance_diff, angle_diff):
             keep_merging = False
 
     # 6. convert all Line_Segments to 4-tuples and return that list
-    return [l.fourtuple() for l in ls]
+    return sorted([l.fourtuple() for l in ls if l.length >= min_len], key=lambda x: (x[0], x[1], x[2], x[3]))
 
 
 
 def get_nearby_file(filename):
     return dirname(realpath(sys.argv[0])) + sep + filename
 
-def draw_map(lines, map_num=2, fp=None):
-    im = Image.new("1", (384, 384), color=0)
+def draw_map(lines, w, h, map_num=2, fp=None):
+    im = Image.new("RGB", (w, h), color="black")
     d = ImageDraw.Draw(im)
-
+    i=0
     for l in lines:
         try:
             x1, y1, x2, y2 = l[0,0], l[0,1], l[0,2], l[0,3]
         except:
             x1, y1, x2, y2 = l[0], l[1], l[2], l[3]
-        d.line((x1, y1, x2, y2), fill=1, width=1)
-
+        d.line((x1, y1, x2, y2), fill="white", width=1)
+        d.text(((x1 + x2)/2, (y1 + y2)/2), "{}".format(i), fill="green")
+        i+=1
+    d.line((0, 0, 20, 20), fill=1, width=3)
     print(len(lines))
     if not fp:
         im.show()
@@ -117,12 +122,16 @@ def draw_map(lines, map_num=2, fp=None):
     else:
         im.save(fp)
 
+
+
 def map_cb(msg):
-    global map_id
+    global map_id, map_shift, map_rot
     grid = msg.data
     width = msg.info.width
     height = msg.info.height
     res = msg.info.resolution
+    origin = msg.info.origin
+    print("origin, ", origin)
 
     # convert the grid to a numpy array - also flip valence of pixels
     # ros maps use black do depict obstacles and white to denote open space, but opencv hough lines uses white to detect lines and ignores black. 
@@ -137,34 +146,25 @@ def map_cb(msg):
  
     # perform hough transform to get the lines
     g_img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-    """
-    # generate 4500 images to try to find the best paramters (most accurate image, fewest lines)
-    for rho in range(1, 5):
-        for intersect in range(20, 50):
-            for minlength in range(10, 40):
-                lines = cv2.HoughLinesP(g_img, rho, np.pi/180, intersect, minlength, 0)
-                path = get_nearby_file('') + sep + 'testdata' + sep + '{}-{}-{}-{}.png'.format(len(lines), rho, intersect, minlength)
-                draw_map(lines, fp=path)
-
-    """
-    lines = cv2.HoughLinesP(g_img, 5, np.pi/180, 45, 30, 0)
+    #g_img = cv2.dilate(g_img, None)
+    
+    lines = cv2.HoughLinesP(g_img, 5, np.pi/180, 20, 20, 2) # started with  rho = 5, minint = 45, minlen = 30, dist=0
     
     # convert lines list into better list
     walls = []
     for l in lines: 
         walls.append([int(l[0,0]), int(l[0,1]), int(l[0,2]), int(l[0,3])])
 
-    draw_map(walls, map_num=1)
+    #draw_map(walls, width, height, map_num=1)
 
-    walls = consolodate_lines(walls, 3, 0.3)
+    walls = consolodate_lines(walls, 3, pi / 8, 4)
     
     print("---")
-    draw_map(walls)  # TODO remove this once this is stable
+    #draw_map(walls, width, height)  # TODO remove this once this is stable
 
-    package = json.dumps({
-        "resolution": res, 
-        "width": width,
-        "height": height,
+    package = json.dumps({ 
+        "width": width * res,
+        "height": height * res,
         "data": walls,
         "id": map_id, 
         "line_count": len(walls)
@@ -177,8 +177,21 @@ def map_cb(msg):
     # push to redis
     redis.rpush(redis_key, str(package))
     # save 
-    cv2.imwrite(get_nearby_file('bw_map_img_flip_v.jpg'), img)
+    cv2.imwrite(get_nearby_file('bw_map_img.jpg'), img)
     
+if __name__ == "__main__":
+    redis = redis.Redis()
+    redis_key = "Map"
+    rospy.init_node("map_bridge")
+    map_id = 0
+    map_sub = rospy.Subscriber("/map", OccupancyGrid, map_cb)
+    map_shift = [0,0,0]
+    map_rot = [0,0,0,0]
+    listener = tf.TransformListener()
+    while not rospy.is_shutdown():
+        try:
+            map_shift, map_rot = listener.lookupTransform("odom", "map", rospy.Time(0))  # gives us the tf from odom to map. values inverted for tf from map to odom. 
+        except (tf.LookupException, tf.ConnectivityException, tf.ExtrapolationException):
+            continue
 
-map_sub = rospy.Subscriber("/map", OccupancyGrid, map_cb)
-rospy.spin()
+        print("MAP TF ", map_shift, map_rot)

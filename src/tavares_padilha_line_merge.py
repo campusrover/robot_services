@@ -1,9 +1,10 @@
+#! /usr/bin/python
 import math 
 
 class Point():
     def __init__(self, point_2tuple):
-        self.x = int(point_2tuple[0])
-        self.y = int(point_2tuple[1])
+        self.x = round(point_2tuple[0])
+        self.y = round(point_2tuple[1])
 
     def distance(self, other_point):
         # returns the distance between this point and the given point
@@ -37,6 +38,8 @@ class Line_Segment():
         self.point2 = Point((line_4tuple[2], line_4tuple[3]))
         self.length = self.point1.distance(self.point2)
         self.theta = self.point1.angle(self.point2)
+        if self.theta == 0.0:
+            self.theta = math.pi
         self.perpindicular = (self.theta + math.pi / 2) % math.pi
 
     def fourtuple(self):
@@ -46,28 +49,28 @@ class Line_Segment():
     def nearby_points(self, radius, res=8):
         # finds all points close to this line segment
         # params: radius is the distane from the line to search within
-        # res is the resolution of the search at the ends. should probably be an even number between 6 and 12, but could be even higher with higher radiuses. so maybe between 3-6 times the radius
         # determine which point to start at. the slop is always between 0-pi, so the lower one should be the starter
-        if self.point1.y <= self.point2.y:
-            startpoint= self.point1.copy()
-            endpoint = self.point2
+        traverse_len = int(self.length) # + 2*radius)
+        if self.point2.y < self.point1.y:
+            start = self.point2.copy()
+            end = self.point1.copy()
         else:
-            startpoint = self.point2.copy()
-            endpoint = self.point1
-        # initialize a set of points near the line
+            start = self.point1.copy()
+            end = self.point2.copy()
+        try:
+            direction = (end.x - start.x) / abs(end.x - start.x)  # either 1 or -1
+        except:
+            direction = 1  # in case divide by 0
+        #start = Point((start.x + math.cos(self.theta) * -direction * radius, start.y + math.sin(self.theta) * -radius))
+        #end = Point((end.x + math.cos(self.theta) * direction * radius, end.y + math.sin(self.theta) * radius))
         points = set()
-        startpoint.x += math.cos(self.theta)
-        startpoint.y += math.sin(self.theta)
-        # crawl up the line, moving the "cursor" 1 unit each iteration. 
-        while startpoint.x < endpoint.x and startpoint.y < endpoint.y:
-            # crawl along the line perpindicular to the given line. 
+        for l in range(traverse_len):
             for r in range(-radius, radius + 1):
-                x = round(startpoint.x + math.cos(self.perpindicular) * r)
-                y = round(startpoint.y + math.sin(self.perpindicular) * r)
-                points.add((x, y))
-            # increment to next point on the line, 1 unit from the previous point
-            startpoint.x += math.cos(self.theta)
-            startpoint.y += math.sin(self.theta)
+                x = start.x + math.cos(self.perpindicular) * r
+                y = start.y + math.sin(self.perpindicular) * r
+                points.add((int(x), int(y)))
+            start.x += math.cos(self.theta) * -direction 
+            start.y += math.sin(self.theta)
 
         # get nearby points around the endpoints too
         for p in [self.point1, self.point2]:
@@ -78,7 +81,8 @@ class Line_Segment():
                     y = round(p.y + math.sin(t) * r)
                     points.add((x, y))
 
-        return [Point(p) for p in points]
+        return [Point((x, y)) for x,y in points]
+
 
     def __eq__(self, other):
         return self.id == other.id and self.point1 == other.point1 and self.point2 == other.point2
@@ -101,7 +105,11 @@ def merge_lines(l1, l2):
     if abs(l1.theta - l2.theta) <= math.pi / 2:
         theta = (l1.length * l1.theta + l2.length * l2.theta) / (l1.length + l2.length)
     else:
-        theta = (l1.length * l1.theta + l2.length * (l2.theta - math.pi * (l2.theta / abs(l2.theta)))) / (l1.length + l2.length)
+        try:
+            theta = (l1.length * l1.theta + l2.length * (l2.theta - math.pi * (l2.theta / abs(l2.theta)))) / (l1.length + l2.length)  # add immensely small number to l2.theta in case l2.theta=0
+        except:
+            print(l2.theta, l2.id, l1.length + l2.length)
+            exit()
     # convert all coordinates to a new frame centered around the cnetroid at angle theta
     # a and b belong to l1, c and d belong to l2.
     # only x converrstions are required 
@@ -123,13 +131,52 @@ def merge_lines(l1, l2):
 
     return Line_Segment(newline)
 
-    
+
+def convert_coords(lines, origin, size, res, tf):
+    # input: lines in a list of 4-tuples, origin (coordinate in meters of the lower left corner, straight from the /map topic), map size (2-tuple width and height in pixels), map resolution (in meters/pixel), tf (the transfrom from odom to map, a tuple of (trnas, rot))
+    # converts pixel coordinates from pixel units anchored to the upper-right of an image to meter units anchored to the point designated by the /map topic
+    pix_x = -origin[0] / res
+    pix_y = size[1] + (origin[1] / res)
+    o = (pix_x, pix_y) # the origin of the map in image pixel coordinates
+    trans = tf[0]
+    rot = tf[1]
+    print(o)
+    new_lines = []
+    for l in lines:
+        new_l = [0,0,0,0]
+        for i in range(4):
+            new_l[i] = (l[i] - o[i%2]) * res * (-1 if i%2==1 else 1) + trans[i%2] # the pixel coordinate, shifted by the map origin, scaled to meters by resolution, fliped +/- if a y coordinate, and shifted by tf from odom to map]
+            # TODO: rotation
+
+        new_lines.append(new_l)
+
+    return new_lines
 
 
 if __name__ == '__main__':
     # scrap script space to test that parts are working
-    l = Line_Segment([0,0,2,2])
-    print(l.nearby_points(2))
+    
+    a = Line_Segment([156,128,161,56])
+    b = Line_Segment([162,54,160,91])
+    c = Line_Segment([159,73,159,62])
+    d = Line_Segment([50, 50, 100, 50])
+    e = Line_Segment([183,67,197,66])
+    print(math.pi / 6)
+
+    for l in [a,b,c,d,e]:
+        print(l.theta)
+        l.nearby_points(3)
+
+    #print(sorted(a.nearby_points(3), key=lambda x: (x.x, x.y)))
+    print(merge_lines(a, b))
+    
+    print(5 * -True)
+    print(9 * False)
+    print(convert_coords([x.fourtuple() for x in [a,b,c,d,e]], (-10,-10), (384,384), 0.05))
+    """
+    l = Line_Segment([151, 173, 151, 167])
+    print(sorted(l.nearby_points(2), key=lambda x: (x.x, x.y)))
+    
     lines = {}
     lines[l.point1] = l
     print(lines)
@@ -142,6 +189,7 @@ if __name__ == '__main__':
     st.remove(2)
     print(st)
     print(l == l)
+    """
     """
     print("l length: ", l.point1.distance(l.point2))
     t = l.point2.angle(l.point1)
