@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 
+import redis
 import rospy
 import math
 import tf
@@ -11,6 +12,7 @@ import actionlib
 import nav_msgs.msg
 from nav_msgs.msg import Odometry
 from std_msgs.msg import String
+
 
 # a Deque of waypoints for the robot to navigate to
 waypoints = deque()
@@ -59,7 +61,7 @@ def input_callback(msg):
 	parse(msg.data)
 	
 # subscriber to consoleInput
-input_sub = rospy.Subscriber('console_input', String, input_callback)
+input_sub = rospy.Subscriber('redis_cmd_listener', String, input_callback)
 
 # resets the global last_in variable to be equal
 # to the current position of the robot
@@ -245,6 +247,7 @@ def reset_all_control_booleans():
 
 if __name__ == '__main__':
 	
+
 	rospy.init_node('commands_with_move_base')
 	rate = rospy.Rate(10)
 
