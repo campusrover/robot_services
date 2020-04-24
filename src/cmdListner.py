@@ -10,16 +10,15 @@ if __name__ == '__main__':
 
 	pub = rospy.Publisher('redis_cmd_listener', String, queue_size=10)
 	rospy.init_node('redis_cmd_listener')
-	rate = rospy.Rate(5)
-	prev_cmd = ""
-	print prev_cmd
+	rate = rospy.Rate(10)
+
+	while (r.llen('cmd') > 0):
+		r.lpop('cmd')
 	while not rospy.is_shutdown():
 		
-		cmd = r.get('cmd')
+		if (r.llen('cmd')) > 0:
+			cmd = r.lpop('cmd')
+			pub.publish(cmd)
+			rate.sleep()
 		
-		if (cmd != prev_cmd):
-			print cmd[1:len(cmd)-1]
-			pub.publish(cmd[1:len(cmd)-1])
-			prev_cmd = cmd
-		rate.sleep()
 
