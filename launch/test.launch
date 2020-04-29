@@ -1,9 +1,10 @@
 <launch>
     <node pkg="unity_bridge" name="map_bridge" type="map_bridge.py" output="screen"/>
-    <node pkg="map_server" name="map_server" type="map_server" args="$(find rover_4_core)/nav_params/labmap.yaml "/>
+    <node pkg="map_server" name="map_server" type="map_server" args="$(find unity_bridge)/maps/expand.yaml"/>
     <!-- $(find rover_4_core)/nav_params/lab_map.yaml <<< reduces 150 lines to 38 lines-->
     <!-- $(find cr_ros_3)/files/basement_map_gen4.yaml <<< reduces 2700 lines to 300 lines-->
     <!-- $(find rover_4_core)/nav_params/labmap.yaml <<< reduces from 188 lines to 38-->
     <!-- $(find unity_bridge)/maps/expand.yaml <<< reduces 270 down to 70 -->
     <!-- $(find unity_bridge)/maps/tbworldmap.yaml <<< reduces 58 down to 22-->
+    <!-- $(find unity_bridge)/maps/map.yaml <<< reduces 72 down to 12-->
 </launch>

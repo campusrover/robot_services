@@ -16,6 +16,7 @@ import tf
 import json
 import redis
 import cv2
+from tf.transformations import euler_from_quaternion
 import numpy as np 
 from nav_msgs.msg import OccupancyGrid
 from os.path import dirname, realpath
@@ -25,6 +26,21 @@ from PIL import Image, ImageDraw
 from tavares_padilha_line_merge import Point, Line_Segment, merge_lines, convert_coords
 from math import pi
 
+def find_close_lines(l, close_lines, line_hash, distance_diff, angle_diff):
+    nearby = l.nearby_points(distance_diff)
+    new_close_lines = []
+    for n in nearby:
+        if line_hash.get(n, None):
+            for cl in line_hash[n]:
+                # if there is another segment with a similar enough slope that is close enough to the line, then pair them together and put them in a queue to be merged.
+                larger_theta = max(cl.theta, l.theta)
+                smaller_theta = min(cl.theta, l.theta)
+                alt_theta = smaller_theta + pi
+                theta_diff = min(larger_theta - smaller_theta, alt_theta - larger_theta)
+                if  theta_diff < angle_diff and cl != l and cl not in close_lines and cl not in new_close_lines: 
+                    new_close_lines.append(cl)
+
+    return new_close_lines
 
 
 def consolodate_lines(lines, distance_diff, angle_diff, min_len):
@@ -35,7 +51,7 @@ def consolodate_lines(lines, distance_diff, angle_diff, min_len):
     ls = sorted([Line_Segment(l, i+1) for l, i in zip(lines, range(len(lines))) if Line_Segment(l).length > 0], key=lambda x: x.length, reverse=True)
     next_id = len(lines) + 1
     line_hash = {}
-    # 2. hash every line with their endpoints being the keys. baskically a bucket hash map using python lists inside dicts
+    # 2. hash every line with their endpoints being the keys. basically a bucket hash map using python lists inside dicts
     for l in ls:
         line_hash[l.point1] = line_hash.get(l.point1, []) + [l]
         line_hash[l.point2] = line_hash.get(l.point2, []) + [l]
@@ -46,28 +62,33 @@ def consolodate_lines(lines, distance_diff, angle_diff, min_len):
         i = 0
         while i < len(ls):
             l = ls[i]
-            nearby = l.nearby_points(distance_diff)
-            close_lines = []
-            for n in nearby:
-                if line_hash.get(n, None):
-                    for cl in line_hash[n]:
-                        # if there is another segment with a similar enough slope that is close enough to the line, then pair them together and put them in a queue to be merged.
-                        larger_theta = max(cl.theta, l.theta)
-                        smaller_theta = min(cl.theta, l.theta)
-                        alt_theta = smaller_theta + pi
-                        theta_diff = min(larger_theta - smaller_theta, alt_theta - larger_theta)
-                        if  theta_diff < angle_diff and cl != l and cl not in close_lines: 
-                            close_lines.append(cl)
+            close_lines = [l]
+            # TODO: put close lines in here, and find close lines of close lines too
+            close_lines += find_close_lines(l, close_lines, line_hash, distance_diff, angle_diff)
+            close_lines.remove(l)
             if close_lines:
+                # find the close lines of the close lines to l
+                for cl in close_lines:
+                    close_lines += find_close_lines(cl, close_lines, line_hash, distance_diff, angle_diff)
                 # sort the close lines based on angle difference, then length
                 close_lines = sorted(close_lines, key=lambda x: (abs(x.theta - l.theta), -x.length))
+                #print(sorted(close_lines, key=lambda x: x.id))
                 merge_queue.append((l, close_lines))
+                #print(l, close_lines[0])
+                if l in close_lines:
+                    close_lines.remove(l)
                 # remove l from hash and list
+                #print(l, "<-- this is the primary line")
                 line_hash[l.point1].remove(l)
                 line_hash[l.point2].remove(l)
                 ls.pop(i)
                 # remove all the lines l will be merged with from the hash and list
                 for merge_pal in close_lines:
+                    """
+                    print(merge_pal)
+                    print(line_hash[merge_pal.point1])
+                    print(line_hash[merge_pal.point2])
+                    """
                     line_hash[merge_pal.point1].remove(merge_pal)
                     line_hash[merge_pal.point2].remove(merge_pal)
                     ls.pop(ls.index(merge_pal))
@@ -76,20 +97,25 @@ def consolodate_lines(lines, distance_diff, angle_diff, min_len):
                 i += 1
     # 4. go through the queue of pairs to be merged and merge them. put the resulting line segments back into hash and list. 
         if merge_queue:
+            #print("merges in queue: ", len(merge_queue))
             for pair in merge_queue:
                 m = pair[0]
                 for l2 in pair[1]:
+                    #print(m, l2, l2.theta)
                     m = merge_lines(m, l2)
+                    #print(pair[0].id, m.theta)
                 merged = m
                 merged.id = next_id
                 next_id += 1
                 # add new line to the data structures
                 ls.append(merged)
+                #print(merged, merged.theta, " input angles: ", (pair[0].theta, pair[0]), [(k.theta, k) for k in pair[1]])
                 ls = sorted(ls, key=lambda x: x.length, reverse=True)
                 line_hash[merged.point1] = line_hash.get(merged.point1, []) + [merged]
                 line_hash[merged.point2] = line_hash.get(merged.point2, []) + [merged]
             # empty the queue
             merge_queue = []
+            #print("remaining line segments: ", len(ls))
     # 5. repeat 3 and 4 until an iteration yeilds no pairs to be merged. 
         else:
             keep_merging = False
@@ -112,12 +138,13 @@ def draw_map(lines, w, h, map_num=2, fp=None):
         except:
             x1, y1, x2, y2 = l[0], l[1], l[2], l[3]
         d.line((x1, y1, x2, y2), fill="white", width=1)
-        d.text(((x1 + x2)/2, (y1 + y2)/2), "{}".format(i), fill="green")
+        if map_num == 2:
+            d.text(((x1 + x2)/2, (y1 + y2)/2), "{}".format(i), fill="green")
         i+=1
-    d.line((0, 0, 20, 20), fill=1, width=3)
+    d.text((20,20), str(len(lines)), fill="green")
     print(len(lines))
     if not fp:
-        im.show()
+        #im.show()
         im.save(get_nearby_file("hough_line_map{}.png".format(map_num)))
     else:
         im.save(fp)
@@ -131,7 +158,6 @@ def map_cb(msg):
     height = msg.info.height
     res = msg.info.resolution
     origin = msg.info.origin
-    print("origin, ", origin)
 
     # convert the grid to a numpy array - also flip valence of pixels
     # ros maps use black do depict obstacles and white to denote open space, but opencv hough lines uses white to detect lines and ignores black. 
@@ -146,22 +172,44 @@ def map_cb(msg):
  
     # perform hough transform to get the lines
     g_img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-    #g_img = cv2.dilate(g_img, None)
+
+    if width + height < 1500:  # arbitrary value picked, dialation slows down hough on large images
+        g_img = cv2.dilate(g_img, None)
+    #cv2.imshow("dialted", g_img)
+
+    # set limits to hough parameters
+    max_dist = 7
+
+    # generate hough paramters
+    min_line_length = round(max(width, height) / 20)
+    intersections = int(2 * min_line_length)
+    dist = min(int(round(min_line_length / 3)), max_dist)
+    print("min line: {}, ok dist: {}".format(min_line_length, dist))
     
-    lines = cv2.HoughLinesP(g_img, 5, np.pi/180, 20, 20, 2) # started with  rho = 5, minint = 45, minlen = 30, dist=0
+    lines = cv2.HoughLinesP(g_img, 5, np.pi/180, intersections, min_line_length, dist) # started with  rho = 5, minint = 45, minlen = 30, dist=0
     
     # convert lines list into better list
     walls = []
     for l in lines: 
         walls.append([int(l[0,0]), int(l[0,1]), int(l[0,2]), int(l[0,3])])
 
-    #draw_map(walls, width, height, map_num=1)
-
-    walls = consolodate_lines(walls, 3, pi / 8, 4)
+    draw_map(walls, width, height, map_num=1)
+    package = json.dumps({ 
+        "width": round(width * res, 3),
+        "height": round(height * res, 3),
+        "data": walls,
+        "id": "raw hough lines", 
+        "line_count": len(walls)
+    })
+    with open(get_nearby_file("walldumpprelim.json"), 'w') as f:
+        f.write(str(package))
+    print("---")
+    walls = consolodate_lines(walls, dist, pi / 12, 4)
+    draw_map(walls, width, height, map_num=2)  # TODO remove this once this is stable
     walls = convert_coords(walls, (origin.position.x, origin.position.y), (width, height), res, (map_shift, map_rot))
     
-    print("---")
-    #draw_map(walls, width, height)  # TODO remove this once this is stable
+    
+    
 
     package = json.dumps({ 
         "width": round(width * res, 3),
@@ -192,7 +240,9 @@ if __name__ == "__main__":
     while not rospy.is_shutdown():
         try:
             map_shift, map_rot = listener.lookupTransform("odom", "map", rospy.Time(0))  # gives us the tf from odom to map. values inverted for tf from map to odom. 
+            map_rot = euler_from_quaternion(map_rot)
+            #print("MAP TF ", map_shift, map_rot)
         except (tf.LookupException, tf.ConnectivityException, tf.ExtrapolationException):
             continue
 
-        print("MAP TF ", map_shift, map_rot)
+       

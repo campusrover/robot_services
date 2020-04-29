@@ -101,12 +101,14 @@ def merge_lines(l1, l2):
     gx = (l1.length * (l1.point1.x + l1.point2.x) + l2.length * (l2.point1.x + l2.point2.x)) / (2 * (l1.length + l2.length))
     gy = (l1.length * (l1.point1.y + l1.point2.y) + l2.length * (l2.point1.y + l2.point2.y)) / (2 * (l1.length + l2.length))
     centroid = Point((gx, gy))
-    # define the orientation of the new merges line
+    # define the orientation of the new merged line
     if abs(l1.theta - l2.theta) <= math.pi / 2:
         theta = (l1.length * l1.theta + l2.length * l2.theta) / (l1.length + l2.length)
     else:
         try:
-            theta = (l1.length * l1.theta + l2.length * (l2.theta - math.pi * (l2.theta / abs(l2.theta)))) / (l1.length + l2.length)  # add immensely small number to l2.theta in case l2.theta=0
+            t2 = (l2.theta + math.pi * (l2.theta / abs(l2.theta)))
+            # in line below, had to change "l2.theta - math.pi" to + to resolve a severe line skewing problem
+            theta = (l1.length * l1.theta + l2.length * t2) / (l1.length + l2.length)  # maybe add immensely small number to l2.theta in case l2.theta=0
         except:
             print(l2.theta, l2.id, l1.length + l2.length)
             exit()
@@ -127,35 +129,68 @@ def merge_lines(l1, l2):
     y1 = gy + (math.sin(theta) * new_end1)
     y2 = gy + (math.sin(theta) * new_end2)
     newline = [x1, y1, x2, y2]
-    newline = [round(i) for i in newline]
+    #newline = [round(i) for i in newline]
 
     return Line_Segment(newline)
 
 
 def convert_coords(lines, origin, size, res, tf):
-    # input: lines in a list of 4-tuples, origin (coordinate in meters of the lower left corner, straight from the /map topic), map size (2-tuple width and height in pixels), map resolution (in meters/pixel), tf (the transfrom from odom to map, a tuple of (trnas, rot))
+    # input: lines in a list of 4-tuples, origin (coordinate in meters of the lower left corner, straight from the /map topic), map size (2-tuple width and height in pixels), map resolution (in meters/pixel), tf (the transfrom from odom to map, a tuple of (trnas, rot). rot must be euler)
     # converts pixel coordinates from pixel units anchored to the upper-right of an image to meter units anchored to the point designated by the /map topic
     pix_x = -origin[0] / res
     pix_y = size[1] + (origin[1] / res)
     o = (pix_x, pix_y) # the origin of the map in image pixel coordinates
     trans = tf[0]
     rot = tf[1]
-    print(o)
     new_lines = []
     for l in lines:
         new_l = [0,0,0,0]
         for i in range(4):
             new_l[i] = (l[i] - o[i%2]) * res * (-1 if i%2==1 else 1) + trans[i%2] # the pixel coordinate, shifted by the map origin, scaled to meters by resolution, fliped +/- if a y coordinate, and shifted by tf from odom to map]
-            # TODO: rotation
-
+            
         new_lines.append([round(x, 3) for x in new_l])
+    # rotate all points about the origin based on the tf
+    theta = rot[2]  # z in euler 
+    rot_lines = []
+    for l in new_lines:
+        new_rot_line = []
+        for p in [(l[0], l[1]), (l[2], l[3])]:
+            x = p[0] * math.cos(theta) - p[1] * math.sin(theta)
+            y = p[1] * math.sin(theta) + p[0] * math.cos(theta)
+            new_rot_line.append(x)
+            new_rot_line.append(y)
+        rot_lines.append(new_rot_line)
 
-    return new_lines
+
+    return rot_lines
 
 
 if __name__ == '__main__':
     # scrap script space to test that parts are working
-    
+    a = Line_Segment([312,148,164,148])
+    b = Line_Segment([283,151,294,150])
+    print(a.length, b.length)
+    print(a.theta, b.theta)
+    c = merge_lines(a,b)
+    print(c, c.theta)
+    """
+    a1 = Line_Segment([10,10,20,12])
+    a2 = Line_Segment([10,12,20,10])
+    print(a1.theta, a2.theta)
+    b = Line_Segment((10,12,20,10))
+    result1 = merge_lines(a1, b)
+    result2 = merge_lines(a2,b)
+    print(result1, result1.theta, '\n', result2, result2.theta)
+    """
+    """
+    mylist = [6]
+    for m in mylist:
+        if not m % 8 == 0:
+            n = m + 7
+            mylist += [n]
+    print(mylist)
+    """
+    """
     a = Line_Segment([156,128,161,56])
     b = Line_Segment([162,54,160,91])
     c = Line_Segment([159,73,159,62])
@@ -173,6 +208,7 @@ if __name__ == '__main__':
     print(5 * -True)
     print(9 * False)
     print(convert_coords([x.fourtuple() for x in [a,b,c,d,e]], (-10,-10), (384,384), 0.05))
+    """
     """
     l = Line_Segment([151, 173, 151, 167])
     print(sorted(l.nearby_points(2), key=lambda x: (x.x, x.y)))
