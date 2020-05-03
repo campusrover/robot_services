@@ -12,6 +12,7 @@ import actionlib
 import nav_msgs.msg
 from nav_msgs.msg import Odometry
 from std_msgs.msg import String
+from geometry_msgs.msg import Twist
 
 
 # a Deque of waypoints for the robot to navigate to
@@ -62,6 +63,9 @@ def input_callback(msg):
 	
 # subscriber to consoleInput
 input_sub = rospy.Subscriber('redis_cmd_listener', String, input_callback)
+#input_sub = rospy.Subscriber('console_input', String, input_callback)
+
+cmd_vel_pub = rospy.Publisher('cmd_vel', Twist, queue_size=1)
 
 # resets the global last_in variable to be equal
 # to the current position of the robot
@@ -235,10 +239,69 @@ def generate_rotation(amount):
 	# generate quaternion
 	quat = rotate(amount, last_in)
 	# use it to generate new point with updated orientation
-	point = [(last_in[0][0], last_in[0][1], last_in[0][2]),(quat[0], quat[1], quat[2], quat[3])]
+	# a nonsense value will be added for the z location to signify that this is a rotation command
+	# the sign of the nonsense value specifies whether it is a left or right turn
+	if amount < 0:
+		point = [(last_in[0][0], last_in[0][1], -10),(quat[0], quat[1], quat[2], quat[3])]
+	else: 
+		point = [(last_in[0][0], last_in[0][1], 10),(quat[0], quat[1], quat[2], quat[3])]
 	# add the waypoint to the deque
 	waypoints.append(point)
 
+# sets the z component of the position of this pose or point to the current z position of the robot
+# this is used primarily to reset the nonsense value used to signify a rotation command
+def reset_z(goal_point):
+	global pose
+	# creates a new point with updated z position. 
+	# new z is the current z, becuase z should never change
+	point = [(goal_point[0][0], goal_point[0][1], pose.position.z),(goal_point[1][0], goal_point[1][1], goal_point[1][2], goal_point[1][3])]
+	return point
+
+# publishes to cmd vel in order to move approximately to the location of the input goal point
+def estimate_with_cmd_vel(gp):
+	global pose
+	# convert current pose to a point
+	current_pose = [(pose.position.x, pose.position.y, pose.position.z),(pose.orientation.x,pose.orientation.y,pose.orientation.z,pose.orientation.w)]
+	# get the current yaw of the robot
+	current_yaw = get_yaw(current_pose)
+	# the goal yaw based on the input goal pose
+	goal_yaw = get_yaw(gp)
+	# if the nonsense value was negative, this is a right turn
+	if gp[0][2] == -10:
+		left_turn = False
+	# if it was positive, this is a left turn
+	else:
+		left_turn = True
+	# if we are turning left, calculate the number of radians we must 
+	# rotate to reach the goal point
+	if left_turn:
+		if goal_yaw > current_yaw:
+			rads = goal_yaw - current_yaw
+		else: 
+			rads = 2*math.pi - current_yaw - goal_yaw
+	# if we are turning right, do the same
+	else: 
+		if goal_yaw < current_yaw:
+			rads = current_yaw - goal_yaw
+		else:
+			rads = 2*math.pi - goal_yaw - current_yaw
+	# a new twist command
+	motion = Twist()
+	# if we are turning left, set the twist command to publish ccw angular velocity
+	if left_turn:
+		motion.angular.z = 1.0
+	# if we are turning right set to cw angular velocity
+	else:
+		motion.angular.z = -1.0
+	# create a timestamp for the robot to stop rotating.
+	# this should be after it has rotated the desired number of radians
+	rotate_time = rospy.Time.now() + rospy.Duration(rads)
+	# while we have not reached the stop time
+	while rospy.Time.now() < rotate_time:
+		# publish the rotation
+		cmd_vel_pub.publish(motion)
+	
+# resets all control booleans to false
 def reset_all_control_booleans():
 	set_cancel(False)
 	set_cancel_all(False)
@@ -318,7 +381,18 @@ if __name__ == '__main__':
 			else: 
 				# the next goal point is the point at the front of the waypoint deque
 				goal_point = waypoints[0]
-				# create a moveBaseGoal from that waypoint
+				# init a boolean to track whether this is rotation
+				is_rotation = False
+				# if we encounter the nonsense value, it is rotation
+				if goal_point[0][2] == -10 or goal_point[0][2] == 10:
+					is_rotation = True
+				# if it's rotation, before executing the movebasegoal, we will
+				# perform an estimated navigation to the goal, which ensures direction of rotation
+				if is_rotation:
+					estimate_with_cmd_vel(goal_point)
+					# replace the nonsense value with a non-nonsense value
+					goal_point = reset_z(goal_point)
+				# create a moveBaseGoal from the waypoint
 				goal = goal_pose(goal_point)
 				# store the goal point in the current goal field
 				current_goal = goal_point
