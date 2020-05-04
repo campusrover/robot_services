@@ -36,7 +36,7 @@ r_serv = rospy.get_param("redis_server", "")
 r_port = rospy.get_param("redis_port", "")
 r_pass = rospy.get_param("redis_pw", "")
 if r_serv and r_port and r_pass:
-    r = redis.Redis(host=r_serv, port=int(r_port), password=r_pass)
+    redis = redis.Redis(host=r_serv, port=int(r_port), password=r_pass)
 else:
     redis = redis.Redis()
 
