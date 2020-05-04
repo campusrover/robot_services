@@ -150,7 +150,6 @@ def convert_coords(lines, origin, size, res, tf):
         new_l = [0,0,0,0]
         for i in range(4):
             new_l[i] = (l[i] - o[i%2]) * res * (-1 if i%2==1 else 1) + trans[i%2] # the pixel coordinate, shifted by the map origin, scaled to meters by resolution, fliped +/- if a y coordinate, and shifted by tf from odom to map]
-            
         new_lines.append([round(x, 3) for x in new_l])
     # rotate all points about the origin based on the tf
     theta = rot[2]  # z in euler 
@@ -159,7 +158,7 @@ def convert_coords(lines, origin, size, res, tf):
         new_rot_line = []
         for p in [(l[0], l[1]), (l[2], l[3])]:
             x = p[0] * math.cos(theta) - p[1] * math.sin(theta)
-            y = p[1] * math.sin(theta) + p[0] * math.cos(theta)
+            y = p[1] * math.cos(theta) + p[0] * math.sin(theta)
             new_rot_line.append(x)
             new_rot_line.append(y)
         rot_lines.append(new_rot_line)
