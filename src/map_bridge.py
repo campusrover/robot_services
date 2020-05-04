@@ -22,7 +22,6 @@ from nav_msgs.msg import OccupancyGrid
 from os.path import dirname, realpath
 from os import sep
 import sys
-from PIL import Image, ImageDraw
 from tavares_padilha_line_merge import Point, Line_Segment, merge_lines, convert_coords
 from math import pi
 
@@ -115,26 +114,6 @@ def consolodate_lines(lines, distance_diff, angle_diff, min_len):
 def get_nearby_file(filename):
     return dirname(realpath(sys.argv[0])) + sep + filename
 
-def draw_map(lines, w, h, map_num=2, fp=None):
-    im = Image.new("RGB", (w, h), color="black")
-    d = ImageDraw.Draw(im)
-    i=0
-    for l in lines:
-        try:
-            x1, y1, x2, y2 = l[0,0], l[0,1], l[0,2], l[0,3]
-        except:
-            x1, y1, x2, y2 = l[0], l[1], l[2], l[3]
-        d.line((x1, y1, x2, y2), fill="white", width=1)
-        if map_num == 2:
-            d.text(((x1 + x2)/2, (y1 + y2)/2), "{}".format(i), fill="green")
-        i+=1
-    d.text((20,20), str(len(lines)), fill="green")
-    print(len(lines))
-    if not fp:
-        #im.show()
-        im.save(get_nearby_file("hough_line_map{}.png".format(map_num)))
-    else:
-        im.save(fp)
 
 
 
@@ -162,7 +141,6 @@ def map_cb(msg):
 
     if width + height < 1500:  # arbitrary value picked, dialation slows down hough on large images
         g_img = cv2.dilate(g_img, None)
-    #cv2.imshow("dialted", g_img)
 
     # set limits to hough parameters
     max_dist = 7
@@ -171,7 +149,6 @@ def map_cb(msg):
     min_line_length = round(max(width, height) / 20)
     intersections = int(2 * min_line_length)
     dist = min(int(round(min_line_length / 3)), max_dist)
-    print("min line: {}, ok dist: {}".format(min_line_length, dist))
     
     lines = cv2.HoughLinesP(g_img, 5, np.pi/180, intersections, min_line_length, dist) # started with  rho = 5, minint = 45, minlen = 30, dist=0
     
@@ -179,26 +156,9 @@ def map_cb(msg):
     walls = []
     for l in lines: 
         walls.append([int(l[0,0]), int(l[0,1]), int(l[0,2]), int(l[0,3])])
-
-    draw_map(walls, width, height, map_num=1)
-    package = json.dumps({ 
-        "width": round(width * res, 3),
-        "height": round(height * res, 3),
-        "data": walls,
-        "id": "raw hough lines", 
-        "line_count": len(walls)
-    })
-    with open(get_nearby_file("walldumpprelim.json"), 'w') as f:
-        f.write(str(package))
-    print("---")
     walls = consolodate_lines(walls, dist, pi / 12, 4)
-    pixel_walls = [[round(x) for x in l] for l in walls]
-    draw_map(pixel_walls, width, height, map_num=2)  # TODO remove this once this is stable
     walls = convert_coords(walls, (origin.position.x, origin.position.y), (width, height), res, (map_shift, map_rot))
     
-    
-    
-
     package = json.dumps({ 
         "width": round(width * res, 3),
         "height": round(height * res, 3),
@@ -209,7 +169,7 @@ def map_cb(msg):
     map_id += 1
 
     with open(get_nearby_file("walldump.json"), 'w') as f:
-        f.write(str(package))
+        json.dump(json.loads(package), f)
 
     # push to redis
     redis.rpush(redis_key, str(package))
@@ -217,19 +177,24 @@ def map_cb(msg):
     cv2.imwrite(get_nearby_file('bw_map_img.jpg'), img)
     
 if __name__ == "__main__":
-    redis = redis.Redis()
-    redis_key = "Map"
     rospy.init_node("map_bridge")
+    r_serv = rospy.get_param("redis_server", "")
+    r_port = rospy.get_param("redis_port", "")
+    r_pass = rospy.get_param("redis_pw", "")
+    if r_serv and r_port and r_pass:
+        r = redis.Redis(host=r_serv, port=int(r_port), password=r_pass)
+    else:
+        redis = redis.Redis()
+    redis_key = "Map"
     map_id = 0
     map_sub = rospy.Subscriber("/map", OccupancyGrid, map_cb)
     map_shift = [0,0,0]
-    map_rot = [0,0,0,0]
+    map_rot = [0,0,0]
     listener = tf.TransformListener()
     while not rospy.is_shutdown():
         try:
             map_shift, map_rot = listener.lookupTransform("odom", "map", rospy.Time(0))  # gives us the tf from odom to map. values inverted for tf from map to odom. 
             map_rot = euler_from_quaternion(map_rot)
-            #print("MAP TF ", map_shift, map_rot)
         except (tf.LookupException, tf.ConnectivityException, tf.ExtrapolationException):
             continue
 

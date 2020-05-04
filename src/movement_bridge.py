@@ -12,10 +12,6 @@ from geometry_msgs.msg import Pose
 from tf.transformations import euler_from_quaternion
 from map_bridge import get_nearby_file
 
-odom_channel = "Odom"
-cmd_channel = "cmd"
-redis = redis.Redis()
-rospy.init_node("move_bridge")
 
 def odom_cb(msg):
     p = msg.pose.pose
@@ -35,7 +31,16 @@ def odom_cb(msg):
     with open(get_nearby_file("odomdump.json"), 'w') as f:
         f.write(str(package))
 
+rospy.init_node("move_bridge")
+r_serv = rospy.get_param("redis_server", "")
+r_port = rospy.get_param("redis_port", "")
+r_pass = rospy.get_param("redis_pw", "")
+if r_serv and r_port and r_pass:
+    r = redis.Redis(host=r_serv, port=int(r_port), password=r_pass)
+else:
+    redis = redis.Redis()
 
+odom_channel = "Odom"
 odom_sub = rospy.Subscriber("/odom", Odometry, odom_cb)
 
 rospy.spin()

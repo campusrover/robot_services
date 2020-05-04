@@ -46,7 +46,7 @@ class Line_Segment():
         # returns the 4-tuple that was passed into to creat the object. 
         ft = [self.point1.x, self.point1.y, self.point2.x, self.point2.y]
         if rounded:
-            ft = [round(x) for x in ft]
+            ft = [[round(x) for x in l] for l in ft]
         return ft
 
     def nearby_points(self, radius, res=8):
@@ -106,6 +106,7 @@ def merge_lines(l1, l2):
     centroid = Point((gx, gy))
     # define the orientation of the new merged line
     # this section of the algorithm does it slightly differently than exactly how T+P's paper describes, but the result is the same - a weighted average of the line's angles based on length
+    # improvements include no skewing when two lines are similar in angle but nominally different (e.g. 3.14 and 0.001) and no divide by 0 error possibility (a fault of T+P's alg if l2.theta = 0)
     t1 = l1.theta
     t2 = l2.theta
     if abs(l1.theta - l2.theta) > math.pi / 2:
