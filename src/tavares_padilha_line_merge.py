@@ -21,7 +21,7 @@ class Point():
         return Point((self.x, self.y))
 
     def __hash__(self):
-        return (self.x, self.y).__hash__()
+        return (round(self.x), round(self.y)).__hash__()
 
     def __eq__(self, other):
         return self.x == other.x and self.y == other.y
