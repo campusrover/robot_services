@@ -1,5 +1,5 @@
 <launch>
-<node pkg="unity_bridge" name="kirbyPatrol" type="kirbyPatrol.py">
+<node pkg="robot_services" name="kirbyPatrol" type="kirbyPatrol.py">
 </node>
 <include file="$(find turtlebot3_navigation)/launch/move_base.launch"/>
 </launch>

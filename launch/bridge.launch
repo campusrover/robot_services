@@ -1,13 +1,17 @@
 <launch>
     <!-- Movement mode arg-->
     <arg name="mode" default="command" doc="legal modes [command, patrol]"/>
+    <!-- odom args-->
+    <arg name="odom_send_thresh" default="0"/>
     <!-- ROS parameterized redis server info-->
     <param name="redis_server" value="redis-10221.c10.us-east-1-3.ec2.cloud.redislabs.com"/>
     <param name="redis_port" value="10221"/>
     <param name="redis_pw" value="ROSlab134"/>
+    <!-- Additional params for bridge nodes-->
+    <param name="odom_thresh" value="$(arg odom_send_thresh)"/>
     <!-- launch map and odom nodes -->
-    <node pkg="unity_bridge" name="map_bridge" type="map_bridge.py" output="screen"/>
-    <node pkg="unity_bridge" name="movement_bridge" type="movement_bridge.py" output="screen"/>
+    <node pkg="robot_services" name="map_bridge" type="map_bridge.py" output="screen"/>
+    <node pkg="robot_services" name="movement_bridge" type="movement_bridge.py" output="screen"/>
     <!-- launch movement command nodes-->
     <include file="$(dirname)/$(arg mode).launch"/>
     <!-- SLAM -->

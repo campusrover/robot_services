@@ -1,4 +1,4 @@
-# ROS-Voxelworld (unity) bridge
+# ROS robot service bridges
 
 a custom package for sending certain ROS information to any other app through REDIS
 
@@ -10,6 +10,6 @@ a custom package for sending certain ROS information to any other app through RE
 
 ## Launch
 
-to launch, use `roslaunch unity_bridge bridge.launch`. By default this launches using the launch file command.launch. To use patrol.launch instead, use `roslaunch unity_bridge bridge.launch mode:=patrol`
+to launch, use `roslaunch robot_services bridge.launch`. By default this launches using the launch file command.launch. To use patrol.launch instead, use `roslaunch robot_services bridge.launch mode:=patrol`
 
-Use `roslaunch unity_bridge test.launch` to test the map bridge on any map. A few samples are included in this repo and the performance is logged in test.launch. the python module Pillow is required for test.launch.
+Use `roslaunch robot_services test.launch` to test the map bridge on any map. A few samples are included in this repo and the performance is logged in test.launch. the python module Pillow is required for test.launch.
