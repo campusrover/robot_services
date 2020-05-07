@@ -90,6 +90,9 @@ class Line_Segment():
     def __eq__(self, other):
         return self.id == other.id and self.point1 == other.point1 and self.point2 == other.point2
 
+    def __hash__(self):
+        return tuple([round(x) for x in [self.point1.x, self.point1.y, self.point2.x, self.point2.y]]).__hash__()
+
     def __repr__(self):
         # prints as "[(x1, y1), (x2, y2)]"
         if not self.id:
@@ -185,6 +188,10 @@ if __name__ == '__main__':
     # scrap script space to test that parts are working
     for a, b in [(3.14, 0), (3.04, .1), (2.94, .2)]:
         print(TP_angle_test(a, b))
+    if 0.000:
+        print('yes')
+    else:
+        print('no')
     """
     a = Line_Segment([312,148,164,148])
     b = Line_Segment([283,151,294,151])

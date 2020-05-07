@@ -26,20 +26,23 @@ from tavares_padilha_line_merge import Point, Line_Segment, merge_lines, convert
 from math import pi
 
 def find_close_lines(l, close_lines, line_hash, distance_diff, angle_diff, og_angle):
-    nearby = l.nearby_points(distance_diff)
-    new_close_lines = []
+    nearby = set(l.nearby_points(distance_diff)) # the set of nearby points to line l
+    endpoints = line_hash.keys()
+    nearby = nearby.intersection(endpoints)
+    new_close_lines = set()
+    cl_set = set(close_lines)
     for n in nearby:
-        if line_hash.get(n, None):
-            for cl in line_hash[n]:
-                # if there is another segment with a similar enough slope that is close enough to the line, then pair them together and put them in a queue to be merged.
-                larger_theta = max(cl.theta, og_angle)
-                smaller_theta = min(cl.theta, og_angle)
-                alt_theta = smaller_theta + pi
-                theta_diff = min(larger_theta - smaller_theta, alt_theta - larger_theta)
-                if  theta_diff < angle_diff and cl != l and cl not in close_lines and cl not in new_close_lines: 
-                    new_close_lines.append(cl)
+        for cl in line_hash[n]:
+            # get the angle difference
+            larger_theta = max(cl.theta, og_angle)
+            smaller_theta = min(cl.theta, og_angle)
+            alt_theta = smaller_theta + pi
+            theta_diff = min(larger_theta - smaller_theta, alt_theta - larger_theta)
+            # if the angle difference is small enough comapred to the original angle, and cl is not already in the list of close lines, then add it
+            if  theta_diff < angle_diff and cl != l and cl not in cl_set and cl not in new_close_lines: 
+                new_close_lines.add(cl)
 
-    return new_close_lines
+    return list(new_close_lines)
 
 
 def consolodate_lines(lines, distance_diff, angle_diff, min_len):
@@ -110,35 +113,30 @@ def consolodate_lines(lines, distance_diff, angle_diff, min_len):
     return sorted([l.fourtuple() for l in ls if l.length >= min_len], key=lambda x: (x[0], x[1], x[2], x[3]))
 
 
-
 def get_nearby_file(filename):
     return dirname(realpath(sys.argv[0])) + sep + filename
 
 
-
-
 def map_cb(msg):
-    global map_id, map_shift, map_rot
+    global map_shift, map_rot
     grid = msg.data
     width = msg.info.width
     height = msg.info.height
     res = msg.info.resolution
     origin = msg.info.origin
+    map_id = msg.header.seq
 
     # convert the grid to a numpy array - also flip valence of pixels
-    # ros maps use black do depict obstacles and white to denote open space, but opencv hough lines uses white to detect lines and ignores black. 
-    img = np.zeros([height, width, 3], dtype=np.uint8)  # start with an initially black image with dimensions of the image
+    # values in grid are from -1 to 100, probability of obstacle in that cell (-1 is unknown)
+    # ros maps use black (100%) do depict obstacles and white (0%) to denote open space, but opencv hough lines uses white to detect lines and ignores black. 
+    g_img = np.zeros([height, width], dtype=np.uint8)  # start with an initially black image with dimensions of the image
     for y in xrange(height):
         for x in xrange(width):
             ind = (y * width) + x
-            if grid[ind] > 0:  # if there is an obstacle at that point, add it to the image as a white pixel
-                img[y, x, :] = np.uint8(255)
-
-    img = np.flip(img, 0) # vertical flip is required of the data. 
+            val = max(0, min(100, grid[ind]))  # clamp value between 0 and 100, remove extraneous values and treat -1 as 0
+            g_img[height - 1 - y, x] = np.uint8(255/100 * val)  # pixel value is occupied % of 255. inserted with y coord height - 1 - y because a vertical flip is required from the raw grid. this does it in one pass w/o needing another operation (e.g. numpy.flip)
+          
  
-    # perform hough transform to get the lines
-    g_img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-
     if width + height < 1500:  # arbitrary value picked, dialation slows down hough on large images
         g_img = cv2.dilate(g_img, None)
 
@@ -152,7 +150,7 @@ def map_cb(msg):
     
     lines = cv2.HoughLinesP(g_img, 5, np.pi/180, intersections, min_line_length, dist) # started with  rho = 5, minint = 45, minlen = 30, dist=0
     
-    # convert lines list into better list
+    # convert lines list into better list where coords are in meters and have same origin as odom
     walls = []
     for l in lines: 
         walls.append([int(l[0,0]), int(l[0,1]), int(l[0,2]), int(l[0,3])])
@@ -166,7 +164,6 @@ def map_cb(msg):
         "id": map_id, 
         "line_count": len(walls)
     })
-    map_id += 1
 
     with open(get_nearby_file("walldump.json"), 'w') as f:
         json.dump(json.loads(package), f)
@@ -174,7 +171,7 @@ def map_cb(msg):
     # push to redis
     redis.rpush(redis_key, str(package))
     # save 
-    cv2.imwrite(get_nearby_file('bw_map_img.jpg'), img)
+    cv2.imwrite(get_nearby_file('bw_map_img.jpg'), g_img)
     
 if __name__ == "__main__":
     rospy.init_node("map_bridge")
@@ -186,11 +183,11 @@ if __name__ == "__main__":
     else:
         redis = redis.Redis()
     redis_key = "Map"
-    map_id = 0
     map_sub = rospy.Subscriber("/map", OccupancyGrid, map_cb)
     map_shift = [0,0,0]
     map_rot = [0,0,0]
     listener = tf.TransformListener()
+    # main loop: get tf from odom to map
     while not rospy.is_shutdown():
         try:
             map_shift, map_rot = listener.lookupTransform("odom", "map", rospy.Time(0))  # gives us the tf from odom to map. values inverted for tf from map to odom. 
