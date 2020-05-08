@@ -10,6 +10,9 @@ a custom package for sending certain ROS information to any other app through RE
 
 ## Launch
 
-to launch, use `roslaunch robot_services bridge.launch`. By default this launches using the launch file command.launch. To use patrol.launch instead, use `roslaunch robot_services bridge.launch mode:=patrol`
+`bridge.launch` is the primary launch file for this package. Presently, it launches the map, odometry, and movement command bridge nodes alongside SLAM. for the map bridge to work best, it needs a transform from `odom` to `map` to exist, which is provided by SLAM and AMCL. `bridge.launch` also has the following launch arguments:
+
+* `mode` (with accepted values `patrol` and `command`, with `command` as the default). This argument changes which node is used to dictate robot movement - patrol autonomously or user inputted commands
+* `odom_send_thresh` (float). This arg is used to change the rate at which odom updates are `set` to Redis. What the threshold describes is a sum in in the change in x position, y position and z orientation. A new update will only be sent once the total change since the past send has exceeded the threshold. Suggested values for this are between 0.1 and 0.5.
 
 Use `roslaunch robot_services test.launch` to test the map bridge on any map. A few samples are included in this repo and the performance is logged in test.launch. the python module Pillow is required for test.launch.
