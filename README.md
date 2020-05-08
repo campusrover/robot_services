@@ -1,6 +1,6 @@
 # ROS robot service bridges
 
-a custom package for sending certain ROS information to any other app through REDIS
+a custom package for sending certain ROS information to any other app through REDIS. this package provides channels that are aimed to encourage merging robots with non robotic applictions. These channels will allow anyone wwith little or no programming experience, and no ROS experience, to be able to interact with robots for specific needs. 
 
 ## REDIS channels
 
@@ -16,3 +16,9 @@ a custom package for sending certain ROS information to any other app through RE
 * `odom_send_thresh` (float). This arg is used to change the rate at which odom updates are `set` to Redis. What the threshold describes is a sum in in the change in x position, y position and z orientation. A new update will only be sent once the total change since the past send has exceeded the threshold. Suggested values for this are between 0.1 and 0.5.
 
 Use `roslaunch robot_services test.launch` to test the map bridge on any map. A few samples are included in this repo and the performance is logged in test.launch. the python module Pillow is required for test.launch.
+
+### Loose Ends and Areas for Improvement
+ 
+* generic_bridge.py was initially created with hopes of creating a generic subsccriber-publisher from ros to redis and vice-versa that would perhaps make use of rospy.msg.AnyMsg.
+* consolodate_lines in map_bridge tends to chug and take a lot of time when faced with many lines. additionally, the process of making a numpy array of an occupancy grid can be very slow if the occupancy grid is large (see basement_map_gen4 in cr_ros_3)
+* a fiducial bridge for passing fiducial locations seems to have been at the top of the list of features that should be added
