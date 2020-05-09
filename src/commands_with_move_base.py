@@ -46,7 +46,7 @@ restart = False
 
 # a regex to grab the double or int corresponding to the 
 # amount of distance or roatation a given command should be executed
-grab_amount = re.compile('\d*\.?\d+')
+grab_amount = re.compile('-?\d*\.?\d+')
  
 # callback function for the odom subscriber
 def odom_callback(msg):
@@ -153,15 +153,18 @@ def parse(message):
 
 	# the amount associated with the input command
 	# could be meters or degrees
-	amount = grab_amount.search(message)
+	amount = grab_amount.findall(message)
 
 	# boolean representing whether or not the default value should be used
 	default = False
 
 	# if there was an input value
-	if amount: 
+	if len(amount) == 1: 
 		# store it as a float
-		amount = float(amount.group())
+		amount = float(amount[0])
+	elif len(amount) == 2:
+		x = float(amount[0])
+		y = float(amount[1])
 	# otherwise use the default value
 	else: 
 		default = True
@@ -175,7 +178,12 @@ def parse(message):
 	# then last_in is the current position of the robot
 	else:
 		reset_last_in()
-
+	# if the message starts with 'go to'
+	if message[:5] == 'go to':
+		# generate a new waypoint at the given x y coord
+		generate_coord(x, y)
+		# add the message to the deque of commands
+		commands.append(message)
 	# if the message starts with 'go forward' 
 	if message[:10] == 'go forward':
 		# generate a new waypoint X meters ahead of the robot
@@ -230,6 +238,11 @@ def generate_forward(amount):
 	# use yaw to geneate a point amount in front of the robot 
 	point = [(last_in[0][0] + amount*math.cos(yaw), last_in[0][1] + amount*math.sin(yaw), 0.0),(last_in[1][0], last_in[1][1], last_in[1][2], last_in[1][3])]
 	# add this new waypoint to the back of the deque
+	waypoints.append(point)
+
+def generate_coord(x, y):
+	global waypoints
+	point = [(x, y, last_in[0][2]),(last_in[1][0], last_in[1][1], last_in[1][2], last_in[1][3])]
 	waypoints.append(point)
 	
 # generates a waypoint the input number of degrees from the current position of the robot and 
