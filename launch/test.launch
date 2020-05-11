@@ -1,6 +1,6 @@
 <launch>
     <node pkg="robot_services" name="map_bridge" type="map_bridge_debug.py" output="screen"/>
-    <node pkg="map_server" name="map_server" type="map_server" args="$(find rover_4_core)/nav_params/lab_map.yaml"/>
+    <node pkg="map_server" name="map_server" type="map_server" args="$(find robot_services)/maps/map.yaml"/>
     <!-- $(find rover_4_core)/nav_params/lab_map.yaml <<< reduces 88 lines to 20 lines-->
     <!-- $(find cr_ros_3)/files/basement_map_gen4.yaml <<< reduces 2700 lines to 300 lines-->
     <!-- $(find rover_4_core)/nav_params/labmap.yaml <<< reduces from 188 lines to 38-->

@@ -1,10 +1,11 @@
 #! /usr/bin/python
 """
-robby ros/unity bridge via redis
+ROS map to line segment JSON converter
+originally made for voxelworld Kirby
 this node: 
 * subscribes to /map
 * converts the 1D map array into a 2D numpy uint8 array
-* passes that numpy array through cv2 Canny and HoughP to get a list of lines that mark tha walls of the map
+* passes that numpy array through cv2  HoughP to get a list of lines that mark tha walls of the map
 * converts that list of lines back to a JSON serializable python list
 * pushes the JSON string to a redis list with the key "Map"
 * saves both the JSON and image locally
@@ -19,6 +20,7 @@ import cv2
 from tf.transformations import euler_from_quaternion
 import numpy as np 
 from nav_msgs.msg import OccupancyGrid
+from std_msgs.msg import Empty
 from os.path import dirname, realpath
 from os import sep
 import sys
@@ -26,9 +28,7 @@ from tavares_padilha_line_merge import Point, Line_Segment, merge_lines, convert
 from math import pi
 
 def find_close_lines(l, close_lines, line_hash, distance_diff, angle_diff, og_angle):
-    nearby = set(l.nearby_points(distance_diff)) # the set of nearby points to line l
-    endpoints = line_hash.keys()
-    nearby = nearby.intersection(endpoints)
+    nearby = set(l.nearby_points(distance_diff)).intersection(line_hash.keys()) # the set of nearby endpoints of other lines to line l
     new_close_lines = set()
     cl_set = set(close_lines)
     for n in nearby:
@@ -164,16 +164,33 @@ def map_cb(msg):
         "id": map_id, 
         "line_count": len(walls)
     })
-
+    # save most recent copy of JSON to a local file
     with open(get_nearby_file("walldump.json"), 'w') as f:
         json.dump(json.loads(package), f)
 
     # push to redis
     redis.rpush(redis_key, str(package))
-    # save 
+    # save what the map looks like to ros to a local file
     cv2.imwrite(get_nearby_file('bw_map_img.jpg'), g_img)
+
+def reset_cb(msg):
+    # empty the list 
+    while redis.llen(redis_key) > 0:
+        redis.lpop(redis_key)
+    # push empty JSON
+    package = json.dumps({ 
+        "width": 0,
+        "height": 0,
+        "data": [],
+        "id": 0, 
+        "line_count": 0
+    })
+    redis.rpush(redis_key, str(package))
+
+    
     
 if __name__ == "__main__":
+    # init node and get redis info from rosparam. use local redis if not all params provided
     rospy.init_node("map_bridge")
     r_serv = rospy.get_param("redis_server", "")
     r_port = rospy.get_param("redis_port", "")
@@ -184,6 +201,7 @@ if __name__ == "__main__":
         redis = redis.Redis()
     redis_key = "Map"
     map_sub = rospy.Subscriber("/map", OccupancyGrid, map_cb)
+    reset_sub = rospy.Subscriber("/reset", Empty, reset_cb)
     map_shift = [0,0,0]
     map_rot = [0,0,0]
     listener = tf.TransformListener()

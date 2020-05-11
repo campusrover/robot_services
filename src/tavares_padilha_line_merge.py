@@ -11,7 +11,7 @@ class Point():
         return math.sqrt(math.pow(self.x - other_point.x, 2) + math.pow(self.y - other_point.y, 2))
 
     def angle(self, other_point):
-        # gives the angle that this point and the other point create, in radians, between 0 and pi
+        # gives the angle that a line betweeen point and the other point create, in radians, between 0 and pi
         run = self.x - other_point.x
         rise = self.y - other_point.y
         return math.atan2(rise, run) % math.pi
@@ -186,82 +186,4 @@ def TP_angle_test(t1, t2):
 
 if __name__ == '__main__':
     # scrap script space to test that parts are working
-    for a, b in [(3.14, 0), (3.04, .1), (2.94, .2)]:
-        print(TP_angle_test(a, b))
-    if 0.000:
-        print('yes')
-    else:
-        print('no')
-    """
-    a = Line_Segment([312,148,164,148])
-    b = Line_Segment([283,151,294,151])
-    b.theta = 0
-    print(a.length, b.length)
-    print(a.theta, b.theta)
-    c = merge_lines(a,b)
-    print("THIS IS THE RESULTING ANGLE:")
-    print(c.theta)
-    """
-    """
-    a1 = Line_Segment([10,10,20,12])
-    a2 = Line_Segment([10,12,20,10])
-    print(a1.theta, a2.theta)
-    b = Line_Segment((10,12,20,10))
-    result1 = merge_lines(a1, b)
-    result2 = merge_lines(a2,b)
-    print(result1, result1.theta, '\n', result2, result2.theta)
-    """
-    """
-    mylist = [6]
-    for m in mylist:
-        if not m % 8 == 0:
-            n = m + 7
-            mylist += [n]
-    print(mylist)
-    """
-    """
-    a = Line_Segment([156,128,161,56])
-    b = Line_Segment([162,54,160,91])
-    c = Line_Segment([159,73,159,62])
-    d = Line_Segment([50, 50, 100, 50])
-    e = Line_Segment([183,67,197,66])
-    print(math.pi / 6)
-
-    for l in [a,b,c,d,e]:
-        print(l.theta)
-        l.nearby_points(3)
-
-    #print(sorted(a.nearby_points(3), key=lambda x: (x.x, x.y)))
-    print(merge_lines(a, b))
-    
-    print(5 * -True)
-    print(9 * False)
-    print(convert_coords([x.fourtuple() for x in [a,b,c,d,e]], (-10,-10), (384,384), 0.05))
-    """
-    """
-    l = Line_Segment([151, 173, 151, 167])
-    print(sorted(l.nearby_points(2), key=lambda x: (x.x, x.y)))
-    
-    lines = {}
-    lines[l.point1] = l
-    print(lines)
-    lines.pop(l.point1)
-    print(lines)
-    llist = [l]
-    print(llist.index(l))
-    st = [1, 2, 3]
-    st += [4]
-    st.remove(2)
-    print(st)
-    print(l == l)
-    """
-    """
-    print("l length: ", l.point1.distance(l.point2))
-    t = l.point2.angle(l.point1)
-    print(t)
-    l2 = Line_Segment([3, 1,4,5])
-
-    print("lengths: ", l.length, l2.length)
-    merged = merge_lines(l, l2)
-    print(merged)
-    """
+    pass
