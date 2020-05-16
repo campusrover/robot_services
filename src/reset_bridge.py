@@ -1,4 +1,4 @@
-#! /usr/bin python
+#! /usr/bin/python
 import rospy, redis
 from std_msgs.msg import Empty
 
