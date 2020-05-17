@@ -175,7 +175,7 @@ def map_cb(msg):
 
 def reset_cb(msg):
     # empty the list 
-    while redis.llen(redis_key) > 0:
+    while int(redis.llen(redis_key)) > 0:
         redis.lpop(redis_key)
     # push empty JSON
     package = json.dumps({ 
