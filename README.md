@@ -33,7 +33,7 @@ General commands supported:
 * turn right (X) - turns the robot x (or default of 90) degrees to the right.
 * patrol - tells the robot to explore its environment. 
 
-For more detailed documentation on commands, controls, and feedback pleas read this documentation on [movement and feedback](robot_movement_and_feedback.txt)
+For more detailed documentation on commands, controls, and feedback please read this documentation on [movement and feedback](robot_movement_and_feedback.txt)
 
 ### Loose Ends and Areas for Improvement
 
