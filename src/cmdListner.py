@@ -12,12 +12,12 @@ if __name__ == '__main__':
 	rospy.init_node('redis_cmd_listener')
 	rate = rospy.Rate(10)
 
-	while (r.llen('cmd') > 0):
-		r.lpop('cmd')
+	while (r.llen('Cmd') > 0):
+		r.lpop('Cmd')
 	while not rospy.is_shutdown():
 		
-		if (r.llen('cmd')) > 0:
-			cmd = r.lpop('cmd')
+		if (r.llen('Cmd')) > 0:
+			cmd = r.lpop('Cmd')
 			pub.publish(cmd)
 			rate.sleep()
 		
