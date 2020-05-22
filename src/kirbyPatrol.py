@@ -79,6 +79,10 @@ def create_waypoints(radius):
 	return waypoints
 
 
+def set_failure(boolean)
+	global failure 
+	failure = boolean
+
 '''class representing a failure state in the FSM used in 
 this patroling algorithm. This state will only be reached
 if all preceeding states in the FSM have also failed.'''
@@ -94,7 +98,6 @@ class Failure(State):
 
 if __name__=='__main__':
 
-	global patroling, failure
 
 	rospy.init_node('patrol')
 
@@ -192,7 +195,7 @@ if __name__=='__main__':
 						rospy.loginfo("patrolling cancelled")
 					else:
 						rospy.loginfo("no more explorable waypoints")
-					failure = True
+					set_failure(True)
 					termination.publish("terminating")
 					rospy.loginfo("terminating")
 				else: 

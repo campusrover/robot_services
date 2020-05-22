@@ -496,7 +496,6 @@ if __name__ == '__main__':
 	# the starting point of the first goal is the initial location of the robot
 	starting_point = [(0.0,0.0,0.0),(0.0,0.0,0.0,0.0)]
 	
-	global rot_completed
 	
 	# simple action client to handle move_base cmds
 	client = actionlib.SimpleActionClient('move_base', MoveBaseAction)
@@ -668,7 +667,7 @@ if __name__ == '__main__':
 						if rotation_client.get_state() == 3:
 							rospy.loginfo("successfully estimated rotation")
 							# reset the amount of rotation completed
-							rot_completed = 0.0
+							reset_all_control_booleans()
 					# as long as we haven't paused
 					if not turn_stopped and not patrol: 				
 						# send the goal to the move base client
