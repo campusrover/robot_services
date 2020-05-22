@@ -3,5 +3,9 @@
 </node>
 <node pkg="robot_services" name="cmdListner" type="cmdListner.py">
 </node>
+<node pkg="robot_services" name="rotation_action_server" type="rotation_action_server.py">
+</node>
+<node pkg="robot_services" name="kirbyPatrol" type="kirbyPatrol.py">
+</node>
 <include file="$(find turtlebot3_navigation)/launch/move_base.launch"/>
 </launch>

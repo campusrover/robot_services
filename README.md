@@ -26,7 +26,15 @@ Every new bridge node should support the reset operation. A reset can be request
 
 ## Movement Commands
 
-@Krajovic please update this
+General commands supported:
+
+* go forward (X) - moves the robot to a location x (or default of 1.0) meters ahead of where it currently is.
+* go to X Y - moves the robot to the given (x,y) coordinate on its map. 
+* turn left (X) - turns the robot x (or default of 90) degrees to the left.
+* turn right (X) - turns the robot x (or default of 90) degrees to the right.
+* patrol - tells the robot to explore its environment. 
+
+For more detailed documentation on commands, controls, and feedback please read this documentation on [movement and feedback](robot_movement_and_feedback.txt)
 
 ### Loose Ends and Areas for Improvement
 
