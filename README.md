@@ -9,6 +9,7 @@ a custom package for sending certain ROS information to any other app through RE
 3. "Bridge_Reset": a `SET` value, should be either `0` or `1`. `1` indicates a request for a reset of all Redis keys. Keys will be reset with their normal JSON structure, with 0 values in each field. After key reset occurs, the value of this key will be `SET` to `0` by `reset_bridge.py`
 4. "cmd": read by `cmdListener.py`
 5. "Log": Strings `RPUSH`ed to this key. Every string is a roslog message published by any node. each string includes the log type, where it came from, and the message.
+6. "Fiducials: JSON that is `RPUSH`ed to a list structure. JSON includes info like `fid_count` representing the number of known fiducials,`dict` representing the fiducial marker format (see aruco marker documentation) `frame`, which will be `odom` if the transform from the camera link to odom is available, otherwise it will be `camera`, indicating that all values in the fiducial list are in coordinates relative to the robot, not the center of odometry. Finally, `data` is a list of known fiducial markers, where each element has a `fid` representing the marker's id number, and a `pose` which has `location` and `orientation` components (in euler radians)
 
 ## Launch
 
