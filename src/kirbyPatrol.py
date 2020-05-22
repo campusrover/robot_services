@@ -79,7 +79,7 @@ def create_waypoints(radius):
 	return waypoints
 
 
-def set_failure(boolean)
+def set_failure(boolean):
 	global failure 
 	failure = boolean
 
