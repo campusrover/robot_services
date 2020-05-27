@@ -12,6 +12,9 @@ if __name__ == "__main__":
     else:
         redis = redis.Redis()
     redis_key = "Bridge_Reset"
+    r_namespace = rospy.get_param("redis_ns", "")
+    if r_namespace:
+        redis_key = r_namespace + "/" + redis_key
     reset_pub = rospy.Publisher("/reset", Empty, queue_size=10)
 
     hz = 2

@@ -5,7 +5,7 @@ from map_bridge import get_nearby_file
 
 def log_cb (msg):
     levels = {0: "DEBUG", 2:"INFO", 4:"WARN", 8:"ERROR", 16:"FATAL"}
-    if not whitelist or msg.name in whitelist:  # if the whitelist is empty, publish everyhting. If the whitelist is populated, only publish from approved nodes
+    if (not whitelist) or msg.name in whitelist:  # if the whitelist is empty, publish everyhting. If the whitelist is populated, only publish from approved nodes
         logpack = "[{}] from {}: ".format(levels[msg.level], msg.name)
         logpack += msg.msg
         redis.rpush(redis_key, logpack)
@@ -28,6 +28,9 @@ if __name__ == "__main__":
     else: 
         redis = redis.Redis()
     redis_key = "Log"
+    r_namespace = rospy.get_param("redis_ns", "")
+    if r_namespace:
+        redis_key = r_namespace + "/" + redis_key
     fid_tf_sub = rospy.Subscriber('/rosout', Log, log_cb)
     reset_sub = rospy.Subscriber("/reset", Empty, reset_cb)
     try:

@@ -200,6 +200,9 @@ if __name__ == "__main__":
     else:
         redis = redis.Redis()
     redis_key = "Map"
+    r_namespace = rospy.get_param("redis_ns", "")
+    if r_namespace:
+        redis_key = r_namespace + "/" + redis_key
     map_sub = rospy.Subscriber("/map", OccupancyGrid, map_cb)
     reset_sub = rospy.Subscriber("/reset", Empty, reset_cb)
     map_shift = [0,0,0]
@@ -210,7 +213,9 @@ if __name__ == "__main__":
         try:
             map_shift, map_rot = listener.lookupTransform("odom", "map", rospy.Time(0))  # gives us the tf from odom to map. values inverted for tf from map to odom. 
             map_rot = euler_from_quaternion(map_rot)
+            rospy.loginfo("Odom to map tf found")
         except (tf.LookupException, tf.ConnectivityException, tf.ExtrapolationException):
+            rospy.loginfo("no transform from odom to map")
             continue
-
+        
        

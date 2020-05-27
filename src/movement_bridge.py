@@ -48,7 +48,7 @@ def reset_cb(msg):
         "odom_id": 0,
         "time": 0
     })
-    redis.set(odom_channel, str(package))
+    redis.set(redis_key, str(package))
 
 
 if __name__ == '__main__':
@@ -61,7 +61,10 @@ if __name__ == '__main__':
     else:
         redis = redis.Redis()
 
-    odom_channel = "Odom"
+    redis_key = "Odom"
+    r_namespace = rospy.get_param("redis_ns", "")
+    if r_namespace:
+        redis_key = r_namespace + "/" + redis_key
     send_thresh = float(rospy.get_param("odom_thresh", 0))
     px, py, pz = -1, -1, -1  # default previous values
     odom_sub = rospy.Subscriber("/odom", Odometry, odom_cb)

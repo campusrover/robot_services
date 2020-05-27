@@ -11,6 +11,10 @@ a custom package for sending certain ROS information to any other app through RE
 5. "Log": Strings `RPUSH`ed to this key. Every string is a roslog message published by any node. each string includes the log type, where it came from, and the message.
 6. "Fiducials: JSON that is `RPUSH`ed to a list structure. JSON includes info like `fid_count` representing the number of known fiducials,`dict` representing the fiducial marker format (see aruco marker documentation) `frame`, which will be `odom` if the transform from the camera link to odom is available, otherwise it will be `camera`, indicating that all values in the fiducial list are in coordinates relative to the robot, not the center of odometry. Finally, `data` is a list of known fiducial markers, where each element has a `fid` representing the marker's id number, and a `pose` which has `location` and `orientation` components (in euler radians)
 
+## Namespacing
+
+To prevent collisions of multiple users on the same redis server, this package provides namespacing. Set the rosparam `redis_ns` to your namespace, and as a result, any of the channels above will be prefixed with your namespace. For example, a user with the namespace "greg" will have all of their redis channels prefixed with "greg/", e.g. "greg/Map", "greg/Odom" . . .
+
 ## Launch
 
 `bridge.launch` is the primary launch file for this package. Presently, it launches the map, odometry, reset, and movement command bridge nodes alongside SLAM. for the map bridge to work best, it needs a transform from `odom` to `map` to exist, which is provided by SLAM and AMCL (SLAM was chosen in this instance). `bridge.launch` also has the following launch arguments:
@@ -29,10 +33,10 @@ Every new bridge node should support the reset operation. A reset can be request
 General commands supported:
 
 * go forward (X) - moves the robot to a location x (or default of 1.0) meters ahead of where it currently is.
-* go to X Y - moves the robot to the given (x,y) coordinate on its map. 
+* go to X Y - moves the robot to the given (x,y) coordinate on its map.
 * turn left (X) - turns the robot x (or default of 90) degrees to the left.
 * turn right (X) - turns the robot x (or default of 90) degrees to the right.
-* patrol - tells the robot to explore its environment. 
+* patrol - tells the robot to explore its environment.
 
 For more detailed documentation on commands, controls, and feedback please read this documentation on [movement and feedback](robot_movement_and_feedback.txt)
 
