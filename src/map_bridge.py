@@ -208,6 +208,7 @@ if __name__ == "__main__":
     map_shift = [0,0,0]
     map_rot = [0,0,0]
     listener = tf.TransformListener()
+    rate = rospy.Rate(5)
     # main loop: get tf from odom to map
     while not rospy.is_shutdown():
         try:
@@ -217,5 +218,5 @@ if __name__ == "__main__":
         except (tf.LookupException, tf.ConnectivityException, tf.ExtrapolationException):
             rospy.loginfo("no transform from odom to map")
             continue
-        
+        rate.sleep()
        

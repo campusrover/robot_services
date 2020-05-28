@@ -19,7 +19,7 @@ def fid_tf_cb(msg):
     if tfs:
         bcaster = tf2.TransformBroadcaster()
         for tf in tfs:
-            # broadcast tf from camera to fid
+            # broadcast tf from camera to fid. This lets us look up the tf later and it does all the hairy math for us. 
             t2 = TransformStamped()
             t2.transform = tf.transform
             t2.header.stamp = rospy.Time.now()
@@ -33,7 +33,7 @@ def fid_tf_cb(msg):
                 # get the tf from the fiducial to the camera or odom (if available)
                 fid_shift, fid_rot = listener.lookupTransform(frame, fid, rospy.Time(0))
                 fid_rot = euler_from_quaternion(fid_rot)
-                all_fids[fid] = {"fid": fid.strip("fid"), "pose": {"location": fid_shift, "orientation": fid_rot}}
+                all_fids[fid] = {"fid": fid.strip("fid"), "pose": {"location": fid_shift, "orientation": fid_rot}}  # update list of all seen fiducials
             except:
                 pass
 
@@ -43,12 +43,13 @@ def fid_tf_cb(msg):
         "frame": frame,
         "data": [all_fids[key] for key in all_fids.keys()]
     })
+    # push to redis and save most recent json to disk
     redis.rpush(redis_key, str(package))
     with open(get_nearby_file("fiddump.json"), 'w') as save:
         json.dump(json.loads(package), save)
 
     #TODO remove this debug line:
-    print("[FID BRIDGE] LIST OF SEEN FIDS: ", all_fids.keys())
+    print("[FID BRIDGE] LIST OF SEEN FIDS: ", all_fids.keys(), "CURRENT:", [t.fiducial_id for t in tfs])
 
 def reset_cb(msg):
     # empty the list 
@@ -58,7 +59,7 @@ def reset_cb(msg):
     package = json.dumps({ 
         "fid_count": 0,
         "dict": fid_dict, 
-        "frame": "camera",
+        "frame": frame,
         "data": []
     })
     redis.rpush(redis_key, package)
@@ -84,13 +85,17 @@ if __name__ == "__main__":
     cam_frame = rospy.get_param("fiducial_bridge/cam_frame", "camera")
     frame = cam_frame
     fid_dict = rospy.get_param("fiducial_bridge/dict", 7)
-    all_fids = {}
+    all_fids = {}  # store all seen fuducial poses in this dictionary
     listener = tf.TransformListener()
+    rate = rospy.Rate(5)
     # main loop: get tf from odom to map
     while not rospy.is_shutdown():
         try:
-            cam_shift, cam_rot = listener.lookupTransform("odom", cam_frame, rospy.Time(0))  # gives us the tf from odom to map. values inverted for tf from map to odom. 
-            cam_rot = euler_from_quaternion(cam_rot)
+            # Make sure that a tf from cam_frame to odom exists. this could be done 2 easy ways: 1. publish robot urdf using robot state publisher. 2. static transform broadcaster from base_footprint to cam_frame
+            odom_tf = listener.lookupTransform("odom", cam_frame, rospy.Time(0))  
             frame = "odom"
         except (tf.LookupException, tf.ConnectivityException, tf.ExtrapolationException):
+            rospy.logwarn("tf from provided camera frame \"{}\" to odom does not exist".format(cam_frame))
+            frame = cam_frame
             continue
+        rate.sleep()
