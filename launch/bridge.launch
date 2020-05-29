@@ -7,6 +7,7 @@
     <param name="redis_server" value="redis-10221.c10.us-east-1-3.ec2.cloud.redislabs.com"/>
     <param name="redis_port" value="10221"/>
     <param name="redis_pw" value="ROSlab134"/>
+    <param name="redis_ns" value="YourNameHere"/>
     <!-- Additional params for bridge nodes-->
     <param name="odom_thresh" value="$(arg odom_send_thresh)"/>
     <!-- launch map and odom nodes -->
