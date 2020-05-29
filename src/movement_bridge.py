@@ -34,7 +34,7 @@ def odom_cb(msg):
     changes = [abs(i - j) for i, j in zip([px, py, pz], [lo[0], lo[1], o[2]])]
     # only post updates if enough has changed since the last send
     if sum(changes) > send_thresh:
-        redis.set(odom_channel, str(package))
+        redis.set(redis_key, str(package))
         px, py, pz = lo[0], lo[1], o[2]  # update previous values
     with open(get_nearby_file("odomdump.json"), 'w') as f:
         json.dump(json.loads(package), f)
