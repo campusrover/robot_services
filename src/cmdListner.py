@@ -10,14 +10,21 @@ if __name__ == '__main__':
 
 	pub = rospy.Publisher('redis_cmd_listener', String, queue_size=10)
 	rospy.init_node('redis_cmd_listener')
+
+	redis_key = "Cmd"
+    r_namespace = rospy.get_param("redis_ns", "")
+    if r_namespace:
+        redis_key = r_namespace + "/" + redis_key
+
+
 	rate = rospy.Rate(10)
 
-	while (r.llen('Cmd') > 0):
-		r.lpop('Cmd')
+	while (r.llen(redis_key) > 0):
+		r.lpop(redis_key)
 	while not rospy.is_shutdown():
 		
-		if (r.llen('Cmd')) > 0:
-			cmd = r.lpop('Cmd')
+		if (r.llen(redis_key)) > 0:
+			cmd = r.lpop(redis_key)
 			pub.publish(cmd)
 			rate.sleep()
 		
