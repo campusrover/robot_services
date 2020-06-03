@@ -4,7 +4,11 @@ a custom package for sending certain ROS information to any other app through RE
 
 ## Installation and setup
 
-Besides default packages that are included with python and ros installations, the redis python module is required. Get it with `pip install redis`. To communicate with redis on your local device instead of a redis server, use `apt install redis-server`. 
+This package runs on Python 2.7
+
+Besides default packages that are included with python and ros installations, the redis python module is required. Get it with `pip install redis`. To communicate with redis on your local device instead of a redis server, use `apt install redis-server`.
+
+To use `test.launch` and `map_bridge_debug.py` you will need PIL. Get it with `pip install Pillow`. `map_bridge_debug.py` draws a map based on the line segments it generates to help visualize while debgging.
 
 ## REDIS channels
 
