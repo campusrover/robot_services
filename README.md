@@ -2,6 +2,10 @@
 
 a custom package for sending certain ROS information to any other app through REDIS. this package provides channels that are aimed to encourage merging robots with non robotic applictions. These channels will allow anyone wwith little or no programming experience, and no ROS experience, to be able to interact with robots for specific needs.
 
+## Installation and setup
+
+Besides default packages that are included with python and ros installations, the redis python module is required. Get it with `pip install redis`. To communicate with redis on your local device instead of a redis server, use `apt install redis-server`. 
+
 ## REDIS channels
 
 1. "Map": Map JSON is `RPUSH`ed to this topic by `map_bridge.py`. `LPOP` should be used to retrieve Map JSON from Redis. Map data is sent as the dimentions of the map in `width` and `height` (in meters), a `line_count` representing the number of line segments in the JSON, and `data`, a list of line segments, represented as four-tuples representing the two endpoints of each line, [x1, y1, x2, y2]. line segment coordinates are in meters relative to the center of odometry if a TF from odom to map is available, otherwise they are relative to map center defined by origin from the map topic.
