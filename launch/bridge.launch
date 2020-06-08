@@ -2,20 +2,26 @@
     <!-- Movement mode arg-->
     <arg name="mode" default="command" doc="legal modes [command, patrol]"/>
     <!-- odom args-->
-    <arg name="odom_send_thresh" default="0"/>
+    <arg name="odom_send_thresh" default="0.3"/>
+    <arg name="ns" default=""/>
     <!-- ROS parameterized redis server info-->
     <param name="redis_server" value="redis-10221.c10.us-east-1-3.ec2.cloud.redislabs.com"/>
     <param name="redis_port" value="10221"/>
     <param name="redis_pw" value="ROSlab134"/>
-    <param name="redis_ns" value="YourNameHere"/>
+    <param name="redis_ns" value="$(arg ns)"/>
     <!-- Additional params for bridge nodes-->
     <param name="odom_thresh" value="$(arg odom_send_thresh)"/>
     <!-- launch map and odom nodes -->
     <node pkg="robot_services" name="map_bridge" type="map_bridge.py" output="screen"/>
     <node pkg="robot_services" name="movement_bridge" type="movement_bridge.py" output="screen"/>
     <node pkg="robot_services" name="reset_bridge" type="reset_bridge.py" output="screen"/>
+    <node pkg="robot_services" name="roslog_bridge" type="log_bridge.py" output="screen"/>
     <!-- launch movement command nodes-->
     <include file="$(dirname)/$(arg mode).launch"/>
+    <!-- fiducials -->
+    <include file="$(dirname)/fiducials.launch">
+        <arg name="ns" value="$(arg ns)"/>
+    </include>
     <!-- SLAM -->
     <include file="$(find turtlebot3_slam)/launch/turtlebot3_slam.launch">
         <arg name="slam_methods" value="gmapping"/>
