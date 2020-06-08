@@ -12,12 +12,23 @@ To use `test.launch` and `map_bridge_debug.py` you will need PIL. Get it with `p
 
 ## REDIS channels
 
-1. "Map": Map JSON is `RPUSH`ed to this topic by `map_bridge.py`. `LPOP` should be used to retrieve Map JSON from Redis. Map data is sent as the dimentions of the map in `width` and `height` (in meters), a `line_count` representing the number of line segments in the JSON, and `data`, a list of line segments, represented as four-tuples representing the two endpoints of each line, [x1, y1, x2, y2]. line segment coordinates are in meters relative to the center of odometry if a TF from odom to map is available, otherwise they are relative to map center defined by origin from the map topic.
-2. "Odom": Odom JSON is `SET` by `movement_bridge.py`. JSON includes `location` as [x, y, z], `orientation` as [roll, pitch, yaw], `linearvelocity` in m/s, `angularvelocity` in rad/s. robot location is in meters relative to the center of odometry. Orientation is in radians.
+1. "Map": Map JSON is `RPUSH`ed to this topic by `map_bridge.py`. `LPOP` should be used to retrieve Map JSON from Redis. Map data is formatted as follows:
+    * `width` and `height` (in meters) 
+    * `line_count` representing the number of line segments in the JSON
+    * `data`, a list of line segments, represented as four-tuples representing the two endpoints of each line, [x1, y1, x2, y2]. line segment coordinates are in meters relative to the center of odometry if a TF from odom to map is available, otherwise they are relative to map center defined by origin from the map topic.
+2. "Odom": Odom JSON is `SET` by `movement_bridge.py`. JSON includes: 
+    * `location` as [x, y, z]
+    * `orientation` as [roll, pitch, yaw]
+    * `linearvelocity` in m/s
+    * `angularvelocity` in rad/s. robot location is in meters relative to the center of odometry. Orientation is in radians.
 3. "Bridge_Reset": a `SET` value, should be either `0` or `1`. `1` indicates a request for a reset of all Redis keys. Keys will be reset with their normal JSON structure, with 0 values in each field. After key reset occurs, the value of this key will be `SET` to `0` by `reset_bridge.py`
-4. "cmd": read by `cmdListener.py`
+4. "Cmd": read by `cmdListener.py`
 5. "Log": Strings `RPUSH`ed to this key. Every string is a roslog message published by any node. each string includes the log type, where it came from, and the message.
-6. "Fiducials: JSON that is `RPUSH`ed to a list structure. JSON includes info like `fid_count` representing the number of known fiducials,`dict` representing the fiducial marker format (see aruco marker documentation) `frame`, which will be `odom` if the transform from the camera link to odom is available, otherwise it will be `camera`, indicating that all values in the fiducial list are in coordinates relative to the robot, not the center of odometry. Finally, `data` is a list of known fiducial markers, where each element has a `fid` representing the marker's id number, and a `pose` which has `location` and `orientation` components (in euler radians)
+6. "Fiducials: JSON that is `RPUSH`ed to a list structure. JSON includes info like:
+    * `fid_count` representing the number of known fiducials
+    * `dict` representing the fiducial marker format (see aruco marker documentation) 
+    * `frame`, which will be `odom` if the transform from the camera link to odom is available, otherwise it will be `camera`, indicating that all values in the fiducial list are in coordinates relative to the robot, not the center of odometry. 
+    * `data` is a list of known fiducial markers, where each element has a `fid` representing the marker's id number, and a `pose` which has `location` and `orientation` components (in euler radians)
 
 ## Namespacing
 

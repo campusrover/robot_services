@@ -1,7 +1,7 @@
 <launch>
     <!-- namespace -->
     <arg name="ns" default=""/>
-    <param name="redis_ns" value="$(arg ns"/>
+    <param name="redis_ns" value="$(arg ns)"/>
 <!-- Gazebo world-->
     <arg name="world" default="stage_3"/>
     <include file="$(find turtlebot3_gazebo)/launch/turtlebot3_$(arg world).launch">
@@ -17,7 +17,7 @@
     <arg name="cam_topic" default="/camera/rgb/image_raw/compressed"/>
 
     <!-- fid model-->
-    <node name="single_fiducial" pkg="gazebo_fiducial_spawner" type="single_spawner.py" args=" 1 -dict $(arg dictionary) -x 0.2 -z 0.1 -P -1.57" output="screen"/>
+    <node name="single_fiducial" pkg="gazebo_fiducial_spawner" type="single_spawner.py" args=" 1 -dict $(arg dictionary) -x 0.4 -z 0.1 -P -1.57" output="screen"/>
 
 
     <!--  Run the throttled feed for the Aruco node-->
