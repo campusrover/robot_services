@@ -77,6 +77,7 @@ if __name__ == "__main__":
     r_namespace = rospy.get_param("redis_ns", "")
     if r_namespace:
         redis_key = r_namespace + "/" + redis_key
+    queue_size = rospy.get_param("redis_qs", 5)
     fid_tf_sub = rospy.Subscriber('/fiducial_transforms', FiducialTransformArray, fid_tf_cb)
     reset_sub = rospy.Subscriber("/reset", Empty, reset_cb)
 
@@ -98,4 +99,7 @@ if __name__ == "__main__":
             rospy.logwarn("tf from provided camera frame \"{}\" to odom does not exist".format(cam_frame))
             frame = cam_frame
             continue
+        # trim queue size
+        if redis.llen(redis_key) > queue_size:
+            redis.lpop(redis_key)
         rate.sleep()

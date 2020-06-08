@@ -203,6 +203,8 @@ if __name__ == "__main__":
     r_namespace = rospy.get_param("redis_ns", "")
     if r_namespace:
         redis_key = r_namespace + "/" + redis_key
+
+    queue_size = rospy.get_param("redis_qs", 5)
     map_sub = rospy.Subscriber("/map", OccupancyGrid, map_cb)
     reset_sub = rospy.Subscriber("/reset", Empty, reset_cb)
     map_shift = [0,0,0]
@@ -218,5 +220,8 @@ if __name__ == "__main__":
         except (tf.LookupException, tf.ConnectivityException, tf.ExtrapolationException):
             rospy.loginfo("no transform from odom to map")
             continue
+        # trim queue size
+        if redis.llen(redis_key) > queue_size:
+            redis.lpop(redis_key)
         rate.sleep()
        
