@@ -23,12 +23,20 @@ To use `test.launch` and `map_bridge_debug.py` you will need PIL. Get it with `p
     * `angularvelocity` in rad/s. robot location is in meters relative to the center of odometry. Orientation is in radians.
 3. "Bridge_Reset": a `SET` value, should be either `0` or `1`. `1` indicates a request for a reset of all Redis keys. Keys will be reset with their normal JSON structure, with 0 values in each field. After key reset occurs, the value of this key will be `SET` to `0` by `reset_bridge.py`
 4. "Cmd": read by `cmdListener.py`
-5. "Log": Strings `RPUSH`ed to this key. Every string is a roslog message published by any node. each string includes the log type, where it came from, and the message.
+5. "Log": JSON `RPUSH`ed to this key. Only forwards logs from whitelisted nodes, by node name. see `src/log_whitelist.json`. JSON includes the following fields:
+    * `level`: a string describing the type of log
+    * `from`: the name of the nod ethat logged this message
+    * `message`: the body of the message
 6. "Fiducials: JSON that is `RPUSH`ed to a list structure. JSON includes info like:
     * `fid_count` representing the number of known fiducials
     * `dict` representing the fiducial marker format (see aruco marker documentation) 
     * `frame`, which will be `odom` if the transform from the camera link to odom is available, otherwise it will be `camera`, indicating that all values in the fiducial list are in coordinates relative to the robot, not the center of odometry. 
     * `data` is a list of known fiducial markers, where each element has a `fid` representing the marker's id number, and a `pose` which has `location` and `orientation` components (in euler radians)
+7: "Lidar": JSON containing simplified lidar data
+    * `max_range` and `min_range` in meters
+    * `fov`: "field of view", in radians
+    * `slices`: the number of pices the lidar has been broken into
+    * `data`: the closest range in each slice, from front going ccw
 
 ## Namespacing
 
@@ -38,8 +46,10 @@ To prevent collisions of multiple users on the same redis server, this package p
 
 `bridge.launch` is the primary launch file for this package. Presently, it launches the map, odometry, reset, and movement command bridge nodes alongside SLAM. for the map bridge to work best, it needs a transform from `odom` to `map` to exist, which is provided by SLAM and AMCL (SLAM was chosen in this instance). `bridge.launch` also has the following launch arguments:
 
-* `mode` (with accepted values `patrol` and `command`, with `command` as the default). This argument changes which node is used to dictate robot movement - patrol autonomously or user inputted commands
-* `odom_send_thresh` (float). This arg is used to change the rate at which odom updates are `set` to Redis. What the threshold describes is a sum in in the change in x position, y position and z orientation. A new update will only be sent once the total change since the past send has exceeded the threshold. Suggested values for this are between 0.1 and 0.5. The default value is 0, meaning odom updates are sent each time they are received.
+* `odom_send_thresh` (float): This arg is used to change the rate at which odom updates are `set` to Redis. What the threshold describes is a sum in in the change in x position, y position and z orientation. A new update will only be sent once the total change since the past send has exceeded the threshold. Suggested values for this are between 0.1 and 0.5. The default value is 0.3. A value of 0 means odom updates are sent each time they are received.
+* `ns` (string): *n*ame*s*pace. Namespaces all redis keys to <ns>/<key>
+* `queue_size` (int): *q*ueue *s*ize. The maximum length for queue-based keys like `Map` and `Fiducials`. defaults to 7
+* `comm` (string). Defaults to `server`. If set to any value besides server, then the redis server will be your local machine. Useful for debugging and not clogging up a remote redis server. 
 
 Use `roslaunch robot_services test.launch` to test the map bridge on any map. A few samples are included in this repo and the performance is logged in test.launch. the python module Pillow is required for test.launch.
 

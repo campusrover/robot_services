@@ -27,9 +27,7 @@ from tavares_padilha_line_merge import Point, Line_Segment, merge_lines, convert
 from math import pi
 
 def find_close_lines(l, close_lines, line_hash, distance_diff, angle_diff, og_angle):
-    nearby = set(l.nearby_points(distance_diff)) # the set of nearby points to line l
-    endpoints = line_hash.keys()
-    nearby = nearby.intersection(endpoints)
+    nearby = set(l.nearby_points(distance_diff)).intersection(line_hash.keys()) # the set of nearby endpoints of other lines to line l
     new_close_lines = set()
     cl_set = set(close_lines)
     for n in nearby:
@@ -114,6 +112,71 @@ def consolodate_lines(lines, distance_diff, angle_diff, min_len):
     return sorted([l.fourtuple() for l in ls if l.length >= min_len], key=lambda x: (x[0], x[1], x[2], x[3]))
 
 
+def consolodate_lines2(lines, distance_diff, angle_diff, min_len):
+    # using some new tools in the Point and Line_Segment objects, improve upon the old algorithm
+    ls = sorted([Line_Segment(l, i+1) for l, i in zip(lines, range(len(lines))) if Line_Segment(l).length > 0], key=lambda x: x.length, reverse=True)
+    
+    # n^2 dict builder of lines that are close to each other
+    close_lines = {}
+    for l1 in ls:
+        close_lines[l1] = set()
+        for l2 in ls:
+            if l2 != l1 and l1.distance(l2) < distance_diff:
+                close_lines[l1].add(l2)
+                print(l1.distance(l2), l1, l2)
+    # build merge groups
+    merge_groups = []
+    merge_memberships = {}  # stores the indexes of the merge groups each line belongs to
+    for l1 in ls:
+        for l2 in close_lines[l1]:
+            if l1.angle_diff(l2) < angle_diff:
+                groups = set(merge_memberships.get(l1, [-1]) + merge_memberships.get(l2, [-1]))
+                for group in groups:
+                    if group >= 0:
+                        merged = merge_groups[group]
+                        if merged.angle_diff(l1) < angle_diff and merged.distance(l1) < distance_diff:
+                            merged = merge_lines(merged, l1)
+                            merge_memberships[l1] = merge_memberships.get(l1, []) + [group]
+                        if merged.angle_diff(l2) < angle_diff and merged.distance(l2) < distance_diff:
+                            merged = merge_lines(merged, l2)
+                            merge_memberships[l2] = merge_memberships.get(l2, []) + [group]
+                        merge_groups[group] = merged
+                    else:
+                        merge_groups.append(merge_lines(l1, l2))
+                        merge_memberships[l1] = [len(merge_groups) - 1]
+                        merge_memberships[l2] = [len(merge_groups) - 1]
+
+    # remove lines staged to be merged from list
+    for l in merge_memberships.keys():
+        ls.remove(l)
+    
+    print("{} lines did not get merged, {} new lines created".format(len(ls), len(merge_groups)))
+    ls += merge_groups
+    
+    return sorted([l.fourtuple() for l in ls if l.length >= min_len], key=lambda x: (x[0], x[1], x[2], x[3]))
+
+def brute_force_consolodation(lines, distance_diff, angle_diff, min_len):
+    ls = sorted([Line_Segment(l, i+1) for l, i in zip(lines, range(len(lines))) if Line_Segment(l).length > 0], key=lambda x: x.length, reverse=True)
+    ls_set = set(ls)
+    did_a_merge = True
+    while did_a_merge:
+        did_a_merge = False
+        for l1 in ls:
+            for l2 in ls:
+                if l1 in ls_set and l2 in ls_set and l1.distance(l2) < distance_diff and l1.angle_diff(l2) < angle_diff and l1 != l2:
+                    ls_set.remove(l1)
+                    ls_set.remove(l2)
+                    l3 = merge_lines(l1, l2)
+                    ls_set.add(l3)
+                    if l3.length > l2.length + l1.length:
+                        print(l1, l2)
+                        print(distance_diff, l1.distance(l2), angle_diff, l1.angle_diff(l2), l1.length, l2.length, l3.length)
+                        print(l3)
+                    did_a_merge = True
+        print("complete loop {}->{}".format(len(ls), len(ls_set)))
+        ls = sorted(list(ls_set), key=lambda x: x.length, reverse=True)   
+    return sorted([l.fourtuple() for l in ls if l.length >= min_len], key=lambda x: (x[0], x[1], x[2], x[3]))
+
 
 def get_nearby_file(filename):
     return dirname(realpath(sys.argv[0])) + sep + filename
@@ -128,8 +191,8 @@ def draw_map(lines, w, h, map_num=2, fp=None):
         except:
             x1, y1, x2, y2 = l[0], l[1], l[2], l[3]
         d.line((x1, y1, x2, y2), fill="white", width=1)
-        if map_num == 2:
-            d.text(((x1 + x2)/2, (y1 + y2)/2), "{}".format(i), fill="green")
+        
+        d.text(((x1 + x2)/2, (y1 + y2)/2), "{}".format(i), fill="green")
         i+=1
     d.text((20,20), str(len(lines)), fill="green")
     print(len(lines))
@@ -148,6 +211,7 @@ def map_cb(msg):
     height = msg.info.height
     res = msg.info.resolution
     origin = msg.info.origin
+    map_id = msg.header.seq
 
     # convert the grid to a numpy array - also flip valence of pixels
     # values in grid are from -1 to 100, probability of obstacle in that cell (-1 is unknown)
@@ -163,25 +227,31 @@ def map_cb(msg):
     # perform hough transform to get the lines
     if width + height < 1500:  # arbitrary value picked, dialation slows down hough on large images
         g_img = cv2.dilate(g_img, None)
-    #cv2.imshow("dialted", g_img)
-
+    """
+    g_img = cv2.Canny(g_img, 100, 200)
+    g_img = cv2.dilate(g_img, None)
+    cv2.imshow("dialtedCanny", g_img)
+    cv2.waitKey()
+    cv2.destroyAllWindows()
+    cv2.imwrite(get_nearby_file('hough_line_map0.png'), g_img)
+    """
     # set limits to hough parameters
     max_dist = 7
 
     # generate hough paramters
-    min_line_length = round(max(width, height) / 20)
+    min_line_length = round(max(width, height) / 5)
     intersections = int(2 * min_line_length)
     dist = min(int(round(min_line_length / 3)), max_dist)
-    print("min line: {}, ok dist: {}".format(min_line_length, dist))
     
-    lines = cv2.HoughLinesP(g_img, 5, np.pi/180, intersections, min_line_length, dist) # started with  rho = 5, minint = 45, minlen = 30, dist=0
-    
+    lines = cv2.HoughLinesP(g_img, 8, np.pi/180, intersections, min_line_length, dist) # started with  rho = 5, minint = 45, minlen = 30, dist=0
+    # print(lines[0])
+    # exit()
     # convert lines list into better list
     walls = []
     for l in lines: 
         walls.append([int(l[0,0]), int(l[0,1]), int(l[0,2]), int(l[0,3])])
 
-    draw_map(walls, width, height, map_num=1)
+    draw_map(walls, width, height, map_num=1)  # this creates hough_line_map1
     package = json.dumps({ 
         "width": round(width * res, 3),
         "height": round(height * res, 3),
@@ -192,9 +262,13 @@ def map_cb(msg):
     with open(get_nearby_file("walldumpprelim.json"), 'w') as f:
         f.write(str(package))
     print("---")
+    walls2 = [w for w in walls]
     walls = consolodate_lines(walls, dist, pi / 12, 4)
     pixel_walls = [[round(x) for x in l] for l in walls]
     draw_map(pixel_walls, width, height, map_num=2)  # TODO remove this once this is stable
+    walls2 = brute_force_consolodation(walls2, dist, pi / 12, 4)
+    pixel_walls = [[round(x) for x in l] for l in walls2]
+    draw_map(pixel_walls, width, height, map_num=3)
     walls = convert_coords(walls, (origin.position.x, origin.position.y), (width, height), res, (map_shift, map_rot))
     
     
@@ -207,7 +281,6 @@ def map_cb(msg):
         "id": map_id, 
         "line_count": len(walls)
     })
-    map_id += 1
 
     with open(get_nearby_file("walldump.json"), 'w') as f:
         f.write(str(package))

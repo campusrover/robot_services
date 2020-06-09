@@ -1,22 +1,25 @@
 #! /usr/bin/python
 import redis, rospy, json
 from rosgraph_msgs.msg import Log
+from std_msgs.msg import Empty
 from map_bridge import get_nearby_file
 
 def log_cb (msg):
     levels = {0: "DEBUG", 2:"INFO", 4:"WARN", 8:"ERROR", 16:"FATAL"}
     if (not whitelist) or msg.name in whitelist:  # if the whitelist is empty, publish everyhting. If the whitelist is populated, only publish from approved nodes
-        logpack = "[{}] from {}: ".format(levels[msg.level], msg.name)
-        logpack += msg.msg
-        redis.rpush(redis_key, logpack)
+        package = json.dumps({
+            "level": levels[msg.level],
+            "from": msg.name,
+            "message": msg.msg
+        })
+        redis.rpush(redis_key, str(package))
 
 def reset_cb(msg):
     # empty the list 
     while int(redis.llen(redis_key)) > 0:
         redis.lpop(redis_key)
     # push empty JSON
-    logpack = "[INFO] from log_bridge: reset applied"
-    redis.rpush(redis_key, logpack)
+    rospy.loginfo("Reset applied")
 
 if __name__ == "__main__":
     rospy.init_node("log_bridge")

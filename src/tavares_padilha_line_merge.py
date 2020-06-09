@@ -9,6 +9,23 @@ class Point():
     def distance(self, other_point):
         # returns the distance between this point and the given point
         return math.sqrt(math.pow(self.x - other_point.x, 2) + math.pow(self.y - other_point.y, 2))
+    
+    def distanceL(self, line):
+        # returns the distance from this point to a line segment
+        fake_l1 = Line_Segment([self.x, self.y, line.point1.x, line.point1.y])
+        fake_l2 = Line_Segment([self.x, self.y, line.point2.x, line.point2.y])
+        a1 = fake_l1.angle_diff(fake_l2)  # this is the only angle that's allowed to be obtuse, because it will be if the point is very close to the line segment
+        a2 = min(line.angle_diff(fake_l1), line.angle_diff(fake_l2))
+        a3 = math.pi - (a1 + a2)
+        if max(a2, a3) > math.pi / 2:
+            # if an angle larger than pi/2 exists between the given line and either of the fake lines, then the triangle formed by the three points is obtuse, and therefore the distance to the line from the point is best expressed as the distance from the point to the nearest endpoint of the line segment
+            return min(self.distance(line.point1), self.distance(line.point2))
+        else:
+            # this only works if the three points (the free point and the two line segment points) create a triangle where the thrid point is above/below the line segment. The article below doesn't say that. I discovered it.  
+            # https://en.wikipedia.org/wiki/Distance_from_a_point_to_a_line#Line_defined_by_two_points
+            x1, y1, x2, y2 = line.fourtuple()
+            x0, y0 = self.twotuple()
+            return abs((y2 - y1)*x0 - (x2 - x1)*y0 + x2*y1 - y2*x1) / math.sqrt((y2-y1)**2 + (x2-x1)**2)
 
     def angle(self, other_point):
         # gives the angle that a line betweeen point and the other point create, in radians, between 0 and pi
@@ -19,6 +36,9 @@ class Point():
     def copy(self):
         # creates a copy of this point
         return Point((self.x, self.y))
+
+    def twotuple(self):
+        return (round(self.x, 3), round(self.y, 3))
 
     def __hash__(self):
         return (round(self.x), round(self.y)).__hash__()
@@ -86,6 +106,56 @@ class Line_Segment():
 
         return [Point((x, y)) for x,y in points]
 
+    def angle_diff(self, other_line):
+        mint, maxt = min(self.theta, other_line.theta), max(self.theta, other_line.theta)
+        alt = (maxt - math.pi)
+        return min(abs(maxt - mint), abs(mint - alt))
+
+    def distance(self, other_line):
+        # returns the distance between this line and another line
+        if self.intersects_with(other_line):
+            return 0
+        else:
+            ds = [self.point1.distanceL(other_line), self.point2.distanceL(other_line), other_line.point1.distanceL(self), other_line.point2.distanceL(self)]
+            return min(ds)
+
+    def distanceP(self, point):
+        # returns the distance between this line and a point
+        return point.distanceL(self)
+
+    def intersects_with(self, other_line):
+        # returns a boolean beased on if the two lines intersect each other
+        # https://www.geeksforgeeks.org/check-if-two-given-line-segments-intersect/
+        def orientation(p, q, r): 
+            val = (float(q.y - p.y) * (r.x - q.x)) - (float(q.x - p.x) * (r.y - q.y)) 
+            if (val > 0): 
+                return 1  # Clockwise orientation 
+            elif (val < 0): 
+                return 2  # Counterclockwise orientation 
+            else: 
+                return 0  # Colinear orientation
+        def onSegment(p, q, r): 
+            if ( (q.x <= max(p.x, r.x)) and (q.x >= min(p.x, r.x)) and 
+                (q.y <= max(p.y, r.y)) and (q.y >= min(p.y, r.y))): 
+                return True
+            return False
+        p1, q1 = self.point1, self.point2
+        p2, q2 = other_line.point1, other_line.point2
+        o1, o2, o3, o4 = orientation(p1, q1, p2), orientation(p1, q1, q2), orientation(p2, q2, p1), orientation(p2, q2, q1)
+        # General case 
+        if ((o1 != o2) and (o3 != o4)): 
+            return True
+        # Special Cases
+        if ((o1 == 0) and onSegment(p1, p2, q1)):  # p1 , q1 and p2 are colinear and p2 lies on segment p1q1 
+            return True
+        if ((o2 == 0) and onSegment(p1, q2, q1)):  # p1 , q1 and q2 are colinear and q2 lies on segment p1q1 
+            return True
+        if ((o3 == 0) and onSegment(p2, p1, q2)):  # p2 , q2 and p1 are colinear and p1 lies on segment p2q2
+            return True
+        if ((o4 == 0) and onSegment(p2, q1, q2)):  # p2 , q2 and q1 are colinear and q1 lies on segment p2q2
+            return True
+        return False  # If none of the cases 
+
 
     def __eq__(self, other):
         return self.id == other.id and self.point1 == other.point1 and self.point2 == other.point2
@@ -106,7 +176,6 @@ def merge_lines(l1, l2):
     # define a centroid, g, formed by the 4 given endpoints and weighted by line lengths
     gx = (l1.length * (l1.point1.x + l1.point2.x) + l2.length * (l2.point1.x + l2.point2.x)) / (2 * (l1.length + l2.length))
     gy = (l1.length * (l1.point1.y + l1.point2.y) + l2.length * (l2.point1.y + l2.point2.y)) / (2 * (l1.length + l2.length))
-    centroid = Point((gx, gy))
     # define the orientation of the new merged line
     # this section of the algorithm does it slightly differently than exactly how T+P's paper describes, but the result is the same - a weighted average of the line's angles based on length
     # improvements include no skewing when two lines are similar in angle but nominally different (e.g. 3.14 and 0.001) and no divide by 0 error possibility (a fault of T+P's alg if l2.theta = 0)
@@ -186,4 +255,24 @@ def TP_angle_test(t1, t2):
 
 if __name__ == '__main__':
     # scrap script space to test that parts are working
-    pass
+    l1 = Line_Segment([250, 200, 252, 189])
+    l2 = Line_Segment([245, 208, 243, 215])
+    l3 = Line_Segment([147, 194, 167, 224])
+    l6 = Line_Segment([147, 224, 133, 224])
+    l4 = Line_Segment([1, 1, 5, 1])
+    l5 = Line_Segment([10, 2,  20, 2])
+    print(l2.intersects_with(l1))
+    print("l2 to l1:", l2.distance(l1))
+    print(l2.angle_diff(l1))
+    
+    #print(Point((252, 189)).distanceL(l2))
+    print("l4 to l5: ", l4.distance(l5))
+    print("l3 to l6", l3.distance(l6))
+    """
+    print(l2.intersects_with(l3))
+    print(l2.distance(l3))
+    print(l2.angle_diff(l3))
+    print(l1.intersects_with(l3))
+    print(l1.distance(l3))
+    print(l1.angle_diff(l3))
+    """
