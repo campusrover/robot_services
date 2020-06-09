@@ -1,65 +1,12 @@
 <launch>
-    <!-- namespace -->
-    <arg name="ns" default=""/>
-<<<<<<< HEAD
-    <param name="redis_ns" value="$(arg ns)"/>
-<!-- Gazebo world-->
-    <arg name="world" default="stage_3"/>
-=======
-    
-    <!-- ROS parameterized redis server info-->
-    <param name="redis_server" value="redis-10221.c10.us-east-1-3.ec2.cloud.redislabs.com"/>
-    <param name="redis_port" value="10221"/>
-    <param name="redis_pw" value="ROSlab134"/>
-    <param name="redis_ns" value="$(arg ns"/>
-    
+    <!-- A launch file for testing fiducials as a stand-alone from the rest of the bridge -->
     <!-- Gazebo world-->
     <arg name="world" default="stage_1"/>
->>>>>>> 179ddefbd394173b97479bd3f1bbe1ba38aea413
     <include file="$(find turtlebot3_gazebo)/launch/turtlebot3_$(arg world).launch">
         <arg name="model" value="waffle_pi"/>
     </include>
-    
-    <!-- Aruco -->
-    <arg name="camera" default="camera/rgb"/>
-    <arg name="image" default="image_raw"/>
-    <arg name="transport" default="compressed"/>
-    <arg name="fiducial_len" default="0.14"/>
-    <arg name="dictionary" default="7"/>
-    <arg name="cam_topic" default="/camera/rgb/image_raw/compressed"/>
-
-    <!-- fid model-->
-<<<<<<< HEAD
+    <!-- Fiducial Bridge -->
+    <include file="$(dirname)/fiducials.launch"/>
+    <!-- Single Fiducial -->
     <node name="single_fiducial" pkg="gazebo_fiducial_spawner" type="single_spawner.py" args=" 1 -dict $(arg dictionary) -x 0.4 -z 0.1 -P -1.57" output="screen"/>
-
-=======
-    <node name="single_fiducial" pkg="gazebo_fiducial_spawner" type="single_spawner.py" args=" 1 -dict $(arg dictionary) -x 0.6 -z 0.1 -P -1.57 -size 0.14" output="screen"/>
->>>>>>> 179ddefbd394173b97479bd3f1bbe1ba38aea413
-
-    <!--  Run the throttled feed for the Aruco node-->
-    <node pkg="topic_tools" type="throttle" name="cam_throttle" args="messages $(arg cam_topic) 2" />
-
-    <!-- Run the aruco_detect node -->
-    <node pkg="aruco_detect" name="aruco_detect"
-        type="aruco_detect" respawn="false">
-        <param name="image_transport" value="$(arg transport)"/>
-        <param name="publish_images" value="true" />
-        <param name="fiducial_len" value="$(arg fiducial_len)"/>
-        <param name="dictionary" value="$(arg dictionary)"/>
-        <param name="do_pose_estimation" value="true"/>
-        <remap from="/camera/compressed"
-            to="$(arg camera)/$(arg image)/$(arg transport)_throttle"/>
-        <remap from="/camera_info" to="$(arg camera)/camera_info"/>
-        <remap from="/fiducial_transforms" to="/fiducial_transforms" />
-    </node>
-
-    <!-- bridge -->
-    <node pkg="robot_services" type="fiducial_bridge.py" name="fiducial_bridge" output="screen">
-        <param name="cam_frame" value="camera_rgb_optical_frame"/>
-        <param name="dict" value="$(arg dictionary)"/>
-    </node>
-    
-    <!-- camera tf (specific for waffle pi)-->
-    <node pkg="tf" type="static_transform_publisher" name="camera_to_base" args="0.076 0 0.013 -1.57 0 -1.57 /base_link /camera_rgb_optical_frame 100" />
-    <node pkg="tf" type="static_transform_publisher" name="base_to_base" args="0 0 0.01 0 0 0 /base_footprint /base_link 100" />
 </launch>

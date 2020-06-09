@@ -87,15 +87,24 @@ if __name__ == "__main__":
     fid_dict = rospy.get_param("fiducial_bridge/dict", 7)
     all_fids = {}  # store all seen fuducial poses in this dictionary
     listener = tf.TransformListener()
+    tf_present = True
     rate = rospy.Rate(5)
     # main loop: get tf from odom to map
     while not rospy.is_shutdown():
         try:
             # Make sure that a tf from cam_frame to odom exists. this could be done 2 easy ways: 1. publish robot urdf using robot state publisher. 2. static transform broadcaster from base_footprint to cam_frame
-            odom_tf = listener.lookupTransform("odom", cam_frame, rospy.Time(0))  
+            odom_tf = listener.lookupTransform("odom", cam_frame, rospy.Time(0))
+            if not tf_present:
+                rospy.loginfo("fiducial camera tf to odom resolved")
+            tf_present = True
             frame = "odom"
         except (tf.LookupException, tf.ConnectivityException, tf.ExtrapolationException):
-            rospy.logwarn("tf from provided camera frame \"{}\" to odom does not exist".format(cam_frame))
+            if tf_present:
+                rospy.logwarn("tf from provided camera frame \"{}\" to odom does not exist".format(cam_frame))
+                odom_exists = listener.frameExists("odom")
+                cam_exists = listener.frameExists(cam_frame)
+                rospy.logwarn("odom does {} exist. {} does {} exist.".format("" if odom_exists else "not", cam_frame, "" if cam_exists else "not"))
+                tf_present = False
             frame = cam_frame
             continue
         # trim queue size

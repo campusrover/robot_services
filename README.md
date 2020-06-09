@@ -4,11 +4,19 @@ a custom package for sending certain ROS information to any other app through RE
 
 ## Installation and setup
 
-This package runs on Python 2.7
+This package runs on Python 2.7 in ROS Melodic. 
 
 Besides default packages that are included with python and ros installations, the redis python module is required. Get it with `pip install redis`. To communicate with redis on your local device instead of a redis server, use `apt install redis-server`.
 
-To use `test.launch` and `map_bridge_debug.py` you will need PIL. Get it with `pip install Pillow`. `map_bridge_debug.py` draws a map based on the line segments it generates to help visualize while debgging.
+The turtlebot3_slam package is currently required. clone it from [here](https://github.com/ROBOTIS-GIT/turtlebot3)
+
+To use fiducials, add them with `apt install ros-melodic-fiducials` - this will install aruco_detect and a few other fiducial related packages.
+
+To easily spawn multiple fiducials to gazebo, try the [Gazebo Fiducial Spawner Package](https://github.com/NateDimick/gazebo_fiducial_spawner)
+
+`fidtest.launch` is provided to test fiducial recognition and localization in isolation from other parts of the bridge.
+
+`test.launch` and `map_bridge_debug.py` are provided to test map generation in isolation. To run you will need PIL. Get it with `pip install Pillow`. `map_bridge_debug.py` draws a map based on the line segments it generates to help visualize while debgging.
 
 ## REDIS channels
 
@@ -22,7 +30,7 @@ To use `test.launch` and `map_bridge_debug.py` you will need PIL. Get it with `p
     * `linearvelocity` in m/s
     * `angularvelocity` in rad/s. robot location is in meters relative to the center of odometry. Orientation is in radians.
 3. "Bridge_Reset": a `SET` value, should be either `0` or `1`. `1` indicates a request for a reset of all Redis keys. Keys will be reset with their normal JSON structure, with 0 values in each field. After key reset occurs, the value of this key will be `SET` to `0` by `reset_bridge.py`
-4. "Cmd": read by `cmdListener.py`
+4. "Cmd": `LPOP`ed by `cmdListener.py`
 5. "Log": JSON `RPUSH`ed to this key. Only forwards logs from whitelisted nodes, by node name. see `src/log_whitelist.json`. JSON includes the following fields:
     * `level`: a string describing the type of log
     * `from`: the name of the nod ethat logged this message

@@ -26,6 +26,7 @@ from os import sep
 import sys
 from tavares_padilha_line_merge import Point, Line_Segment, merge_lines, convert_coords
 from math import pi
+from collections import OrderedDict
 
 def brute_force_consolodation(lines, distance_diff, angle_diff, min_len):
     ls = sorted([Line_Segment(l, i+1) for l, i in zip(lines, range(len(lines))) if Line_Segment(l).length > 0], key=lambda x: x.length, reverse=True)
@@ -93,13 +94,13 @@ def map_cb(msg):
     walls = brute_force_consolodation(walls, dist, pi / 12, 4)
     walls = convert_coords(walls, (origin.position.x, origin.position.y), (width, height), res, (map_shift, map_rot))
     
-    package = json.dumps({ 
-        "width": round(width * res, 3),
-        "height": round(height * res, 3),
-        "data": walls,
-        "id": map_id, 
-        "line_count": len(walls)
-    })
+    package = json.dumps(OrderedDict([
+        ("id", map_id), 
+        ("line_count", len(walls)),
+        ("width", round(width * res, 3)),
+        ("height", round(height * res, 3)),
+        ("data", walls)
+    ]))
     # save most recent copy of JSON to a local file
     with open(get_nearby_file("walldump.json"), 'w') as f:
         json.dump(json.loads(package), f)
@@ -114,13 +115,13 @@ def reset_cb(msg):
     while int(redis.llen(redis_key)) > 0:
         redis.lpop(redis_key)
     # push empty JSON
-    package = json.dumps({ 
-        "width": 0,
-        "height": 0,
-        "data": [],
-        "id": 0, 
-        "line_count": 0
-    })
+    package = json.dumps(OrderedDict([
+        ("id", 0), 
+        ("line_count", 0),
+        ("width", 0),
+        ("height", 0),
+        ("data", [])
+    ]))
     redis.rpush(redis_key, str(package))
 
     
@@ -146,15 +147,20 @@ if __name__ == "__main__":
     map_shift = [0,0,0]
     map_rot = [0,0,0]
     listener = tf.TransformListener()
+    tf_present = False
     rate = rospy.Rate(5)
     # main loop: get tf from odom to map
     while not rospy.is_shutdown():
         try:
             map_shift, map_rot = listener.lookupTransform("odom", "map", rospy.Time(0))  # gives us the tf from odom to map. values inverted for tf from map to odom. 
             map_rot = euler_from_quaternion(map_rot)
-            rospy.loginfo("Odom to map tf found")
+            if not tf_present:
+                rospy.loginfo("Odom to map tf found")
+                tf_present = True
         except (tf.LookupException, tf.ConnectivityException, tf.ExtrapolationException):
-            rospy.loginfo("no transform from odom to map")
+            if tf_present:
+                rospy.loginfo("no transform from odom to map")
+                tf_present = False
             continue
         # trim queue size
         if redis.llen(redis_key) > queue_size:
