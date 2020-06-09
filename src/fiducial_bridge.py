@@ -48,8 +48,7 @@ def fid_tf_cb(msg):
     with open(get_nearby_file("fiddump.json"), 'w') as save:
         json.dump(json.loads(package), save)
 
-    #TODO remove this debug line:
-    print("[FID BRIDGE] LIST OF SEEN FIDS: ", all_fids.keys(), "CURRENT:", [t.fiducial_id for t in tfs])
+    rospy.logdebug("********* List of seen Fids", 1) #: ", all_fids.keys(), "CURRENT:", [t.fiducial_id for t in tfs])
 
 def reset_cb(msg):
     # empty the list 

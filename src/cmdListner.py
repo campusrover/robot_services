@@ -15,16 +15,15 @@ if __name__ == '__main__':
 	r_namespace = rospy.get_param("redis_ns", "")
 	if r_namespace:
 		redis_key = r_namespace + "/" + redis_key
-
-
 	rate = rospy.Rate(10)
 
 	while (r.llen(redis_key) > 0):
 		r.lpop(redis_key)
+	
 	while not rospy.is_shutdown():
-		
+
 		if (r.llen(redis_key)) > 0:
-			cmd = r.lpop(redis_key)
+			cmd = r.lpop(redis_key).decode('utf8')
 			pub.publish(cmd)
 			rate.sleep()
 		

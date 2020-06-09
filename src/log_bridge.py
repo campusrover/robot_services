@@ -2,10 +2,13 @@
 import redis, rospy, json
 from rosgraph_msgs.msg import Log
 from map_bridge import get_nearby_file
+from std_msgs.msg import Empty
 
 def log_cb (msg):
     levels = {0: "DEBUG", 2:"INFO", 4:"WARN", 8:"ERROR", 16:"FATAL"}
-    if (not whitelist) or msg.name in whitelist:  # if the whitelist is empty, publish everyhting. If the whitelist is populated, only publish from approved nodes
+ # if the whitelist is empty, publish everything. If the whitelist is populated, 
+ # only publish from approved nodes
+    if not whitelist or msg.name in whitelist: 
         logpack = "[{}] from {}: ".format(levels[msg.level], msg.name)
         logpack += msg.msg
         redis.rpush(redis_key, logpack)
@@ -19,6 +22,7 @@ def reset_cb(msg):
     redis.rpush(redis_key, logpack)
 
 if __name__ == "__main__":
+    global whitelist
     rospy.init_node("log_bridge")
     r_serv = rospy.get_param("redis_server", "")
     r_port = rospy.get_param("redis_port", "")
