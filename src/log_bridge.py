@@ -3,6 +3,7 @@ import redis, rospy, json
 from rosgraph_msgs.msg import Log
 from std_msgs.msg import Empty
 from map_bridge import get_nearby_file
+from std_msgs.msg import Empty
 
 def log_cb (msg):
     levels = {0: "DEBUG", 2:"INFO", 4:"WARN", 8:"ERROR", 16:"FATAL"}
@@ -22,6 +23,7 @@ def reset_cb(msg):
     rospy.loginfo("Reset applied")
 
 if __name__ == "__main__":
+    global whitelist
     rospy.init_node("log_bridge")
     r_serv = rospy.get_param("redis_server", "")
     r_port = rospy.get_param("redis_port", "")
