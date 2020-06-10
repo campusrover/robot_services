@@ -5,7 +5,7 @@
 
 #### Basic commands: 
 
-##### forward (X)"
+##### "go forward (X)"
 * move to a space the specified number of meters ahead of where the robot currently is or a default of 1m ahead if none is specified
 	* will fail if that location is blocked by or inside of a known obstacle. 
 		* if it fails, the robot will rotate in place twice while attmpeting to find a path and then ultimately not move, if it cannot reach the desired location. 
