@@ -2,6 +2,7 @@
 import rospy, redis, json
 from sensor_msgs.msg import LaserScan
 from std_msgs.msg import Empty
+from collections import OrderedDict
 
 def scan_cb(msg):
     global slices
@@ -13,24 +14,25 @@ def scan_cb(msg):
         ranges.append(min(msg.ranges[s:s+slice_size]))
         s+=slice_size
 
-    package = json.dumps({
-        "data": ranges,
-        "max_range": msg.range_max,
-        "min_range": msg.range_min,
-        "slices": slices,
-        "fov": msg.angle_increment * len(msg.ranges), # field of view
-    })
+    package = json.dumps(OrderedDict([
+        ("max_range", msg.range_max),
+        ("min_range", msg.range_min),
+        ("slices", slices),
+        ("fov", msg.angle_increment * len(msg.ranges)), # field of view
+        ("data", ranges)
+    ]))
 
     redis.set(redis_key, str(package))
+    rospy.Rate(1).sleep()
 
 def reset_cb(msg):
-    package = json.dumps({
-        "data": [],
-        "max_range": 0,
-        "min_range": 9,
-        "slices": slices,
-        "fov": 0
-    })
+    package = json.dumps(OrderedDict([
+        ("max_range", 0),
+        ("min_range", 0),
+        ("slices", 0),
+        ("fov", 0), # field of view
+        ("data", [])
+    ]))
 
     redis.set(redis_key, str(package))
 
@@ -49,7 +51,7 @@ if __name__ == '__main__':
     r_namespace = rospy.get_param("redis_ns", "")
     if r_namespace:
         redis_key = r_namespace + "/" + redis_key
-    slices = rospy.get_param("lidar_slices", 4)
+    slices = min(int(rospy.get_param("lidar_slices", 4)), 360)
     scan_sub = rospy.Subscriber("/scan", LaserScan, scan_cb)
     reset_sub = rospy.Subscriber("/reset", Empty, reset_cb)
 

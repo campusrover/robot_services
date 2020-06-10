@@ -12,6 +12,7 @@ from geometry_msgs.msg import Pose
 from std_msgs.msg import Empty
 from tf.transformations import euler_from_quaternion
 from map_bridge import get_nearby_file
+from collections import OrderedDict
 
 
 def odom_cb(msg):
@@ -22,15 +23,14 @@ def odom_cb(msg):
     l = round(m.linear.x, 3)
     a = round(m.angular.z, 3)
     lo = [round(x, 3) for x in [p.position.x, p.position.y, p.position.z]]
-    package = json.dumps({
-        "location": lo,
-        "orientation":  o,
-        "linearvelocity": l,
-        "angularvelocity": a,
-        "odom_id": msg.header.seq,
-        "time": msg.header.stamp.secs
-
-    })
+    package = json.dumps(OrderedDict([
+        ("odom_id", msg.header.seq),
+        ("location", lo),
+        ("orientation",  o),
+        ("linearvelocity", l),
+        ("angularvelocity", a),
+        ("time", msg.header.stamp.secs)
+    ]))
     changes = [abs(i - j) for i, j in zip([px, py, pz], [lo[0], lo[1], o[2]])]
     # only post updates if enough has changed since the last send
     if sum(changes) > send_thresh:
@@ -40,14 +40,14 @@ def odom_cb(msg):
         json.dump(json.loads(package), f)
 
 def reset_cb(msg):
-    package = json.dumps({
-        "location": [0,0,0],
-        "orientation":  [0,0,0],
-        "linearvelocity": 0,
-        "angularvelocity": 0,
-        "odom_id": 0,
-        "time": 0
-    })
+    package = json.dumps(OrderedDict([
+        ("odom_id", 0),
+        ("location", [0,0,0]),
+        ("orientation",  [0,0,0]),
+        ("linearvelocity", 0),
+        ("angularvelocity", 0),
+        ("time", 0)
+    ]))
     redis.set(redis_key, str(package))
 
 
