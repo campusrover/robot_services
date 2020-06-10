@@ -9,6 +9,7 @@ from std_msgs.msg import Empty
 from tf.transformations import euler_from_quaternion
 import tf2_ros as tf2 
 from map_bridge import get_nearby_file
+from collections import OrderedDict
 
 # pass a list of fiducials through redis. each fiducial is {"fid": x, "pose": {"location": [x, y, z], "orientation": [roll, pitch, yaw]}}. Pose is an absolute location in the odom TF frame. 
 
@@ -37,12 +38,12 @@ def fid_tf_cb(msg):
             except:
                 pass
 
-    package = json.dumps({ 
-        "fid_count": len(all_fids.keys()),
-        "dict": fid_dict,  
-        "frame": frame,
-        "data": [all_fids[key] for key in all_fids.keys()]
-    })
+    package = json.dumps(OrderedDict([ 
+        ("fid_count", len(all_fids.keys())),
+        ("dict", fid_dict),  
+        ("frame", frame),
+        ("data", [all_fids[key] for key in all_fids.keys()])
+    ]))
     # push to redis and save most recent json to disk
     redis.rpush(redis_key, str(package))
     with open(get_nearby_file("fiddump.json"), 'w') as save:
@@ -55,12 +56,12 @@ def reset_cb(msg):
     while int(redis.llen(redis_key)) > 0:
         redis.lpop(redis_key)
     # push empty JSON
-    package = json.dumps({ 
-        "fid_count": 0,
-        "dict": fid_dict, 
-        "frame": frame,
-        "data": []
-    })
+    package = json.dumps(OrderedDict([ 
+        ("fid_count", 0),
+        ("dict", fid_dict),  
+        ("frame", frame),
+        ("data", [])
+    ]))
     redis.rpush(redis_key, package)
 
 if __name__ == "__main__":
@@ -108,6 +109,6 @@ if __name__ == "__main__":
             frame = cam_frame
             continue
         # trim queue size
-        if redis.llen(redis_key) > queue_size:
+        while redis.llen(redis_key) > queue_size:
             redis.lpop(redis_key)
         rate.sleep()

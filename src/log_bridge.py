@@ -4,15 +4,16 @@ from rosgraph_msgs.msg import Log
 from std_msgs.msg import Empty
 from map_bridge import get_nearby_file
 from std_msgs.msg import Empty
+from collections import OrderedDict
 
 def log_cb (msg):
     levels = {0: "DEBUG", 2:"INFO", 4:"WARN", 8:"ERROR", 16:"FATAL"}
     if (not whitelist) or msg.name in whitelist:  # if the whitelist is empty, publish everyhting. If the whitelist is populated, only publish from approved nodes
-        package = json.dumps({
-            "level": levels[msg.level],
-            "from": msg.name,
-            "message": msg.msg
-        })
+        package = json.dumps(OrderedDict([
+            ("level", levels[msg.level]),
+            ("from", msg.name),
+            ("message", msg.msg)
+        ]))
         redis.rpush(redis_key, str(package))
 
 def reset_cb(msg):
