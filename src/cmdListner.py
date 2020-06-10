@@ -24,6 +24,7 @@ if __name__ == '__main__':
 
 		if (r.llen(redis_key)) > 0:
 			cmd = r.lpop(redis_key).decode('utf8')
+			rospy.loginfo("Publishing command: " + cmd)
 			pub.publish(cmd)
 			rate.sleep()
 		

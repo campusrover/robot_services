@@ -163,7 +163,7 @@ if __name__ == "__main__":
                 tf_present = False
             continue
         # trim queue size
-        if redis.llen(redis_key) > queue_size:
+        while redis.llen(redis_key) > queue_size:
             redis.lpop(redis_key)
         rate.sleep()
        
