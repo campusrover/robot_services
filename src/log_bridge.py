@@ -43,28 +43,30 @@ if __name__ == "__main__":
     fid_tf_sub = rospy.Subscriber('/rosout', Log, log_cb)
     reset_sub = rospy.Subscriber("/reset", Empty, reset_cb)
     try:
-        with open(get_nearby_file('log_whitelist.json'), 'r') as f:
-            whitelist = set(json.load(f))
-    except:
+        try:  # first try to get namespaced whitelist
+            with open(get_nearby_file('{}log_whitelist.json'.format(r_namespace)), 'r') as f:
+                whitelist = set(json.load(f))
+        except:  # then try to get generic whitelist
+            with open(get_nearby_file('log_whitelist.json'), 'r') as f:
+                whitelist = set(json.load(f))
+    except:  # otherwise, whitelist is empty
         whitelist = set()
    
     rate = rospy.Rate(5)
     while not rospy.is_shutdown():
-        if redis.llen(redis_key2) > 0:
+        if redis.llen(redis_key2) > 0:  # try to get a request
             req = redis.lpop(redis_key2)
             try:
-                node_name, action = req.strip().split()
+                node_name, action = req.strip().split()  # unpack the request
                 if not node_name.startswith("/"):
                     node_name = "/" + node_name
-                if int(action):
+                if int(action):  # action == 1: add to list
                     whitelist.add(node_name)
-                else:
+                else:  # action == 0: remove from list
                     whitelist.remove(node_name)
-                with open(get_nearby_file('log_whitelist.json'), 'w') as f:
+                with open(get_nearby_file('{}log_whitelist.json'.format(r_namespace)), 'w') as f:  # save the whitelist to a namespaced file so Dave doesn't change Carl's whitelist
                     json.dump(sorted(list(whitelist)), f)
                     rospy.loginfo("{} {} Log Whitelist".format(node_name, "added to" if int(action) else "removed from"))
             except Exception as e:
-                rospy.logerr("Could not complete request \"{}\" because of {} ".format(req, e))
-
-
+                rospy.logerr("Could not complete request \"{}\" because of {} ".format(req, e))  # include request and error reason in error log
         rate.sleep()

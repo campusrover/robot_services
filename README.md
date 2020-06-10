@@ -35,7 +35,7 @@ To easily spawn multiple fiducials to gazebo, try the [Gazebo Fiducial Spawner P
     * `level`: a string describing the type of log
     * `from`: the name of the nod ethat logged this message
     * `message`: the body of the message
-6. "Log_Edit": `RPUSH` strings to this key from external applications. `log_bridge.py` will use `LPOP` to retrieve requests sent to this key. This key is for adding and removing nodes from the log's whitelist. strings sent to this key should include only a node name and an action code in that order, e.g. "/map_bridge 0". actions codes are `1` for `ADD` and `0` for `REMOVE`. 
+6. "Log_Edit": `RPUSH` strings to this key from external applications. `log_bridge.py` will use `LPOP` to retrieve requests sent to this key. This key is for adding and removing nodes from the log's whitelist. Strings sent to this key should include only a node name and an action code in that order, e.g. "/map_bridge 0". actions codes are `1` for `ADD` and `0` for `REMOVE`. 
 7. "Fiducials": JSON that is `RPUSH`ed to a list structure. JSON includes info like:
     * `fid_count` representing the number of known fiducials
     * `dict` representing the fiducial marker format (see aruco marker documentation) 
