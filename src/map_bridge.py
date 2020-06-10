@@ -39,16 +39,11 @@ def brute_force_consolodation(lines, distance_diff, angle_diff, min_len):
                 if l1 in ls_set and l2 in ls_set and l1.distance(l2) < distance_diff and l1.angle_diff(l2) < angle_diff and l1 != l2:
                     ls_set.remove(l1)
                     ls_set.remove(l2)
-                    l3 = merge_lines(l1, l2)
-                    ls_set.add(l3)
-                    if l3.length > l2.length + l1.length:
-                        print(l1, l2)
-                        print(distance_diff, l1.distance(l2), angle_diff, l1.angle_diff(l2), l1.length, l2.length, l3.length)
-                        print(l3)
+                    ls_set.add(merge_lines(l1, l2))
                     did_a_merge = True
-        #print("complete loop {}->{}".format(len(ls), len(ls_set)))
         ls = sorted(list(ls_set), key=lambda x: x.length, reverse=True)   
     return sorted([l.fourtuple() for l in ls if l.length >= min_len], key=lambda x: (x[0], x[1], x[2], x[3]))
+
 
 def get_nearby_file(filename):
     return dirname(realpath(sys.argv[0])) + sep + filename

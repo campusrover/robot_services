@@ -11,10 +11,11 @@ def log_cb (msg):
   # if the whitelist is empty, publish everyhting. If the whitelist is populated, only publish from approved nodes
     if (not whitelist) or msg.name in whitelist:
         package = json.dumps(OrderedDict([
-            "level": msg.level,
-            "from": msg.name,
-            "message": msg.msg
-        })
+            ("level", levels[msg.level]),
+            ("from", msg.name),
+            ("message", msg.msg)
+        ]))
+        redis.rpush(redis_key, str(package))
 
 def reset_cb(msg):
     # empty the list 
@@ -34,9 +35,11 @@ if __name__ == "__main__":
     else: 
         redis = redis.Redis()
     redis_key = "Log"
+    redis_key2 = "Log_Edit"
     r_namespace = rospy.get_param("redis_ns", "")
     if r_namespace:
         redis_key = r_namespace + "/" + redis_key
+        redis_key2 = r_namespace + "/" + redis_key2
     fid_tf_sub = rospy.Subscriber('/rosout', Log, log_cb)
     reset_sub = rospy.Subscriber("/reset", Empty, reset_cb)
     try:
@@ -45,4 +48,23 @@ if __name__ == "__main__":
     except:
         whitelist = set()
    
-    rospy.spin()
+    rate = rospy.Rate(5)
+    while not rospy.is_shutdown():
+        if redis.llen(redis_key2) > 0:
+            req = redis.lpop(redis_key2)
+            try:
+                node_name, action = req.strip().split()
+                if not node_name.startswith("/"):
+                    node_name = "/" + node_name
+                if int(action):
+                    whitelist.add(node_name)
+                else:
+                    whitelist.remove(node_name)
+                with open(get_nearby_file('log_whitelist.json'), 'w') as f:
+                    json.dump(sorted(list(whitelist)), f)
+                    rospy.loginfo("{} {} Log Whitelist".format(node_name, "added to" if int(action) else "removed from"))
+            except Exception as e:
+                rospy.logerr("Could not complete request \"{}\" because of {} ".format(req, e))
+
+
+        rate.sleep()
