@@ -205,7 +205,7 @@ Summary of Commands
 | cancel | cancel stopped processing | ?
 | go forward | move forward | Optional parameters can control the distance. Works within the constraints of navigability.
 ---
-
+ 
 #### Notes
 * These commands maintain a notion of "previous location" to which they can be returned.
 
