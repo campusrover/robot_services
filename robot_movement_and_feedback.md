@@ -192,6 +192,27 @@
 		* "unable to complete goal"
 
 
+---
+Summary of Commands
 
+| Command | Effect | Notes |
+|---|---|---|
+|patrol | initiate the patrolling algorithm | a sophisticated algorithm to try to explore the whole reachable space |
+| go to x y | go to coordinates x y | Works within navigability. From where you are try to plot a route to x and y. Uses navigation.
+| turn left/right | turn the robot | Same
+| stop | stop current processing | Commands are executed in sequence. More like a "pause" |
+| continue | resume from a stop | 
+| cancel | cancel stopped processing | ?
+| go forward | move forward | Optional parameters can control the distance. Works within the constraints of navigability.
+---
+
+#### Notes
+* These commands maintain a notion of "previous location" to which they can be returned.
+
+# Status log messages
+* Returning to previous location
+* Returned to previous location
+* Patrolling cancelled
+* Unable to complete goal
 
 
