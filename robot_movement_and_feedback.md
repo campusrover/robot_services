@@ -8,7 +8,7 @@
 ##### "go forward (X)"
 * move to a space the specified number of meters ahead of where the robot currently is or a default of 1m ahead if none is specified
 	* will fail if that location is blocked by or inside of a known obstacle. 
-		* if it fails, the robot will rotate in place twice while attmpeting to find a path and then ultimately not move, if it cannot reach the desired location. 
+		* if it fails, the robot will rotate in place twice while attempting to find a path and then ultimately not move, if it cannot reach the desired location. 
 	* if parts of the map are unexplored such that whether or not the desired location can be reached is unknown, the robot will move to explore unknown areas that could lead to a path to the desired location. 
 		* if a path to the desired location is found, the robot will navigate to the desired location.
 		* if no path is found, the robot will stop as soon as it is sure that there is no path to the desired location. 
@@ -192,6 +192,28 @@
 		* "unable to complete goal"
 
 
+---
+Summary of Commands
 
+| Command | Effect | Notes |
+|---|---|---|
+|patrol | initiate the patrolling algorithm | a sophisticated algorithm to try to explore the whole reachable space |
+| go to x y | go to coordinates x y | Works within navigability. From where you are try to plot a route to x and y. Uses navigation.
+| turn left/right | turn the robot | Same
+| stop | stop current processing | Commands are executed in sequence. More like a "pause" |
+| continue | resume from a stop | 
+| cancel | cancel stopped processing | ? |
+| cancel all | resets all the state of this module | 
+| go forward | move forward | Optional parameters can control the distance. Works within the constraints of navigability.
+---
+ 
+#### Notes
+* These commands maintain a notion of "previous location" to which they can be returned.
+
+# Status log messages
+* Returning to previous location
+* Returned to previous location
+* Patrolling cancelled
+* Unable to complete goal
 
 
