@@ -202,7 +202,8 @@ Summary of Commands
 | turn left/right | turn the robot | Same
 | stop | stop current processing | Commands are executed in sequence. More like a "pause" |
 | continue | resume from a stop | 
-| cancel | cancel stopped processing | ?
+| cancel | cancel stopped processing | ? |
+| cancel all | resets all the state of this module | 
 | go forward | move forward | Optional parameters can control the distance. Works within the constraints of navigability.
 ---
  
