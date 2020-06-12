@@ -44,7 +44,7 @@ def find_close_lines(l, close_lines, line_hash, distance_diff, angle_diff, og_an
     return list(new_close_lines)
 
 
-def consolodate_lines(lines, distance_diff, angle_diff, min_len):
+def consolidate_lines(lines, distance_diff, angle_diff, min_len):
     # input: list of 4-tuples representing lines, how close lines need to be together and how similar their angles need to be to be merged
     # steps:
 
@@ -112,7 +112,7 @@ def consolodate_lines(lines, distance_diff, angle_diff, min_len):
     return sorted([l.fourtuple() for l in ls if l.length >= min_len], key=lambda x: (x[0], x[1], x[2], x[3]))
 
 
-def consolodate_lines2(lines, distance_diff, angle_diff, min_len):
+def consolidate_lines2(lines, distance_diff, angle_diff, min_len):
     # using some new tools in the Point and Line_Segment objects, improve upon the old algorithm
     ls = sorted([Line_Segment(l, i+1) for l, i in zip(lines, range(len(lines))) if Line_Segment(l).length > 0], key=lambda x: x.length, reverse=True)
     
@@ -155,6 +155,52 @@ def consolodate_lines2(lines, distance_diff, angle_diff, min_len):
     
     return sorted([l.fourtuple() for l in ls if l.length >= min_len], key=lambda x: (x[0], x[1], x[2], x[3]))
 
+
+def consolidate_lines2b(lines, distance_diff, angle_diff, min_len):
+    ls = sorted([Line_Segment(l, i+1) for l, i in zip(lines, range(len(lines))) if Line_Segment(l).length > 0], key=lambda x: x.length, reverse=True)
+    # build dict of lines that are close to each other and of similar angle. each line gets a set of close lines. takes 1/2n^2 time
+    close_lines = {}
+    for i in range(len(ls)):
+        l1 = ls[i]
+        close2l1 = close_lines.get(l1, set())
+        for j in range(i+1, len(ls)):
+            l2 = ls[j]
+            if l1.distance(l2) < distance_diff and l1.angle_diff(l2) < angle_diff:
+                close2l1.add(l2)
+                close2l2 = close_lines.get(l2, set())
+                close2l2.add(l1)
+                close_lines[l2] = close2l2
+        close_lines[l1] = close2l1
+    # merge groups of lines
+    merge_groups = []
+    for k in close_lines.keys():
+        init_neighbors = close_lines[k]
+        close_lines[k] = set()  # erase that key, effectively
+        extended_neighbors = set()
+        for n in init_neighbors:  # for all nearby neighbors, get their neighbors and add them to the extended set. then erase their sets, commiting that line to this set
+            extended_neighbors.union(close_lines[n])
+            close_lines[n] = set()
+        all_neighbors = init_neighbors.union(extended_neighbors)  # join all lines
+        if all_neighbors:  # if we have something, add it to the list
+            merge_groups.append(all_neighbors)
+    # perform merges and remove merged lines from list
+    merge_results = []
+    for group in merge_groups:
+        group = list(group)
+        m = group[0]
+        for l in group[1:]:
+            m = merge_lines(m, l)
+        for l in group:
+            try:
+                ls.remove(l)
+            except:
+                pass
+        merge_results.append(m)
+    print("{} lines did not get merged. {} lines resulted from merging".format(len(ls), len(merge_results)))
+    ls += merge_results
+    return sorted([l.fourtuple() for l in ls if l.length >= min_len], key=lambda x: (x[0], x[1], x[2], x[3]))
+
+
 def brute_force_consolodation(lines, distance_diff, angle_diff, min_len):
     ls = sorted([Line_Segment(l, i+1) for l, i in zip(lines, range(len(lines))) if Line_Segment(l).length > 0], key=lambda x: x.length, reverse=True)
     ls_set = set(ls)
@@ -168,10 +214,6 @@ def brute_force_consolodation(lines, distance_diff, angle_diff, min_len):
                     ls_set.remove(l2)
                     l3 = merge_lines(l1, l2)
                     ls_set.add(l3)
-                    if l3.length > l2.length + l1.length:
-                        print(l1, l2)
-                        print(distance_diff, l1.distance(l2), angle_diff, l1.angle_diff(l2), l1.length, l2.length, l3.length)
-                        print(l3)
                     did_a_merge = True
         print("complete loop {}->{}".format(len(ls), len(ls_set)))
         ls = sorted(list(ls_set), key=lambda x: x.length, reverse=True)   
@@ -263,12 +305,28 @@ def map_cb(msg):
         f.write(str(package))
     print("---")
     walls2 = [w for w in walls]
-    walls = consolodate_lines(walls, dist, pi / 12, 4)
+    walls3 = [w for w in walls]
+    print("****FIRST METHOD*****")
+    st = rospy.Time.now().nsecs
+    walls = consolidate_lines(walls, dist, pi / 12, 4)
+    et = rospy.Time.now().nsecs  - st
+    print("time taken: {}".format(et))
     pixel_walls = [[round(x) for x in l] for l in walls]
     draw_map(pixel_walls, width, height, map_num=2)  # TODO remove this once this is stable
+    print('****BRUTE FORCE*****')
+    st = rospy.Time.now().nsecs
     walls2 = brute_force_consolodation(walls2, dist, pi / 12, 4)
+    et = rospy.Time.now().nsecs  - st
+    print("time taken: {}".format(et))
     pixel_walls = [[round(x) for x in l] for l in walls2]
     draw_map(pixel_walls, width, height, map_num=3)
+    print('****ELEGANT MIDDLE GROUND*****')
+    st = rospy.Time.now().nsecs
+    walls = consolidate_lines2b(walls3, dist, pi / 12, 4)
+    et = rospy.Time.now().nsecs  - st
+    print("time taken: {}".format(et))
+    pixel_walls = [[round(x) for x in l] for l in walls]
+    draw_map(pixel_walls, width, height, map_num=4)
     walls = convert_coords(walls, (origin.position.x, origin.position.y), (width, height), res, (map_shift, map_rot))
     
     
