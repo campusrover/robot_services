@@ -8,7 +8,7 @@
 ##### "go forward (X)"
 * move to a space the specified number of meters ahead of where the robot currently is or a default of 1m ahead if none is specified
 	* will fail if that location is blocked by or inside of a known obstacle. 
-		* if it fails, the robot will rotate in place twice while attmpeting to find a path and then ultimately not move, if it cannot reach the desired location. 
+		* if it fails, the robot will rotate in place twice while attempting to find a path and then ultimately not move, if it cannot reach the desired location. 
 	* if parts of the map are unexplored such that whether or not the desired location can be reached is unknown, the robot will move to explore unknown areas that could lead to a path to the desired location. 
 		* if a path to the desired location is found, the robot will navigate to the desired location.
 		* if no path is found, the robot will stop as soon as it is sure that there is no path to the desired location. 

@@ -597,7 +597,7 @@ if __name__ == '__main__':
 							reset_all_control_booleans()
 							# publish feedback
 							rospy.loginfo("cancelled current goal")
-							rospy.loginfo("continuing execution of planeed goals")
+							rospy.loginfo("continuing execution of planned goals")
 					# if a restart command is received without any cancel commands
 					elif restart: 
 						# if we were doing something other than rotating
