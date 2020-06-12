@@ -1,6 +1,1 @@
-[
-    "/cmdListner",
-    "/commands_with_move_base",
-    "/kirbyPatrol",
-    "/log_bridge"
-]
+{"/commands_with_move_base": 2, "/log_bridge": 1, "/map_bridge": 2, "/kirbyPatrol": 2, "/cmdListner": 2}

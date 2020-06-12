@@ -35,13 +35,14 @@ To easily spawn multiple fiducials to gazebo, try the [Gazebo Fiducial Spawner P
     * `level`: a string describing the type of log
     * `from`: the name of the nod ethat logged this message
     * `message`: the body of the message
-6. "Log_Edit": `RPUSH` strings to this key from external applications. `log_bridge.py` will use `LPOP` to retrieve requests sent to this key. This key is for adding and removing nodes from the log's whitelist. Strings sent to this key should include only a node name and an action code in that order, e.g. "/map_bridge 0". actions codes are `1` for `ADD` and `0` for `REMOVE`. 
-7. "Fiducials": JSON that is `SET` by `fiducial_bridge.py` JSON includes info like:
+6. "Feedback": Identical to "Log", but reserved for messages that are generated in response to redis activity
+7. "Log_Settings": see the section below on Updating Log Settings
+8. "Fiducials": JSON that is `SET` by `fiducial_bridge.py` JSON includes info like:
     * `fid_count` representing the number of known fiducials
     * `dict` representing the fiducial marker format (see aruco marker documentation) 
     * `frame`, which will be `odom` if the transform from the camera link to odom is available, otherwise it will be `camera`, indicating that all values in the fiducial list are in coordinates relative to the robot, not the center of odometry. 
     * `data` is a list of known fiducial markers, where each element has a `fid` representing the marker's id number, and a `pose` which has `location` (in meters) and `orientation` components (in euler radians)
-8: "Lidar": JSON is `SET` by `lidar_bridge.py` containing simplified lidar data - the shortest range in each slice of it's fov.
+9: "Lidar": JSON is `SET` by `lidar_bridge.py` containing simplified lidar data - the shortest range in each slice of it's fov.
     * `max_range` and `min_range` in meters
     * `fov`: "field of view", in radians
     * `slices`: the number of pices the lidar has been broken into
@@ -81,7 +82,28 @@ General commands supported:
 
 For more detailed documentation on commands, controls, and feedback please read this documentation on [movement and feedback](robot_movement_and_feedback.txt)
 
-### Loose Ends and Areas for Improvement
+## Updating Log Settings
+
+the "Log" and "Feedback" keys operate on a whitelist system. If `src/log_whitelist.json` does not exist, then every node will have basic "Log" priviledge. Otherwise, there is a tiered system as follows:
+
+* nodes with whitelist level `0` are not whitelisted. 
+* nodes with whitelist level `1` can send their logs to the "Log" key
+* nodes with whitelist level `2` have level `1` priviledges and can send logs to the "Feedback" key
+
+`src/log_whitelist.json` stores key/value pairs where the keys are the names of nodes and the values are their whitelist level. Please note that node names start with a `/`. 
+
+To edit the whitelist remotely from redis, create a key called `<ns>/Log_Settings/<node_name>`, where:
+
+* `ns` is your personal namespace
+* `node_name` is the name of the node you want to change logging access for, e.g. `map_bridge` or `fiducial_bridge` (NB that the `/` in the node name is included in the key structure)
+
+to this key, `SET` either 0, 1 or 2 to update that key's whitelist level
+
+### Example
+
+to change `lidar_bridge.py` to gain feedback access, use `set mynamespace/Log_Settings/lidar_bridge 2`
+
+## Loose Ends and Areas for Improvement
 
 For an overview of the strategy and algorithms used in the map bridge, please read [this markdown file](map_bridge.md)
 
