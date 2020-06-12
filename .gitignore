@@ -6,3 +6,4 @@
 *.pdf
 *.DS_Store*
 *dump*.json
+*redis_login.yaml

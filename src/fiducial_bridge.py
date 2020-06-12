@@ -45,16 +45,13 @@ def fid_tf_cb(msg):
         ("data", [all_fids[key] for key in all_fids.keys()])
     ]))
     # push to redis and save most recent json to disk
-    redis.rpush(redis_key, str(package))
+    redis.set(redis_key, str(package))
     with open(get_nearby_file("fiddump.json"), 'w') as save:
         json.dump(json.loads(package), save)
 
     rospy.logdebug("********* List of seen Fids", 1) #: ", all_fids.keys(), "CURRENT:", [t.fiducial_id for t in tfs])
 
 def reset_cb(msg):
-    # empty the list 
-    while int(redis.llen(redis_key)) > 0:
-        redis.lpop(redis_key)
     # push empty JSON
     package = json.dumps(OrderedDict([ 
         ("fid_count", 0),
@@ -62,7 +59,7 @@ def reset_cb(msg):
         ("frame", frame),
         ("data", [])
     ]))
-    redis.rpush(redis_key, package)
+    redis.set(redis_key, package)
 
 if __name__ == "__main__":
     rospy.init_node("fiducial_bridge")
@@ -108,7 +105,4 @@ if __name__ == "__main__":
                 tf_present = False
             frame = cam_frame
             continue
-        # trim queue size
-        while redis.llen(redis_key) > queue_size:
-            redis.lpop(redis_key)
         rate.sleep()

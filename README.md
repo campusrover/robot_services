@@ -36,7 +36,7 @@ To easily spawn multiple fiducials to gazebo, try the [Gazebo Fiducial Spawner P
     * `from`: the name of the nod ethat logged this message
     * `message`: the body of the message
 6. "Log_Edit": `RPUSH` strings to this key from external applications. `log_bridge.py` will use `LPOP` to retrieve requests sent to this key. This key is for adding and removing nodes from the log's whitelist. Strings sent to this key should include only a node name and an action code in that order, e.g. "/map_bridge 0". actions codes are `1` for `ADD` and `0` for `REMOVE`. 
-7. "Fiducials": JSON that is `RPUSH`ed to a list structure. JSON includes info like:
+7. "Fiducials": JSON that is `SET` by `fiducial_bridge.py` JSON includes info like:
     * `fid_count` representing the number of known fiducials
     * `dict` representing the fiducial marker format (see aruco marker documentation) 
     * `frame`, which will be `odom` if the transform from the camera link to odom is available, otherwise it will be `camera`, indicating that all values in the fiducial list are in coordinates relative to the robot, not the center of odometry. 
@@ -59,7 +59,7 @@ Refer to the `ns` launch arg below to easily set a personal namespace
 
 * `odom_send_thresh` (float): This arg is used to change the rate at which odom updates are `set` to Redis. What the threshold describes is a sum in in the change in x position, y position and z orientation. A new update will only be sent once the total change since the past send has exceeded the threshold. Suggested values for this are between 0.1 and 0.5. The default value is 0.3. A value of 0 means odom updates are sent each time they are received.
 * `ns` (string): *n*ame*s*pace. Namespaces all redis keys to \<ns>/\<key>
-* `queue_size` (int): *q*ueue *s*ize. The maximum length for queue-based keys like `Map` and `Fiducials`. defaults to 7
+* `queue_size` (int): *q*ueue *s*ize. The maximum length for queue-based keys like `Map`. defaults to 7
 * `comm` (string). Defaults to `server`. If set to any value besides server, then the redis server will be your local machine. Useful for debugging and not clogging up a remote redis server. 
 * `lidar_slices` (int): the number points desired from lidar data. Max value 360.
 
