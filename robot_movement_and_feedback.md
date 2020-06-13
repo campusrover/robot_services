@@ -191,6 +191,9 @@
 	* If it has not moved beyond the threshold: 
 		* "unable to complete goal"
 
+##### invalid commands: 
+* If the robot receives an invalid/malformed command it publishes "invalid command" to the log. 
+
 
 ---
 Summary of Commands
