@@ -197,14 +197,16 @@ Summary of Commands
 
 | Command | Effect | Notes |
 |---|---|---|
-|patrol | initiate the patrolling algorithm | a sophisticated algorithm to try to explore the whole reachable space |
+|patrol | initiate the patrolling algorithm | an algorithm to try to explore the whole reachable space |
 | go to x y | go to coordinates x y | Works within navigability. From where you are try to plot a route to x and y. Uses navigation.
 | turn left/right | turn the robot | Same
 | stop | stop current processing | Commands are executed in sequence. More like a "pause" |
 | continue | resume from a stop | 
-| cancel | cancel stopped processing | ? |
-| cancel all | resets all the state of this module | 
+| cancel | cancel the action that was paused with a stop command | Can only be used following stop command |
+| cancel all | cancel any and all queued actions | Can only be used after a stop command
 | go forward | move forward | Optional parameters can control the distance. Works within the constraints of navigability.
+| go back | cancels the current action and returns to the location the robot was in when it started the cancelled action | can only be used after a stop command
+| go back AND/OR keep going | possible responses to the robot's request for user input | these commands are only valid when robot requests user input. This will only happen if the robot moves from its original location in an attempt to find a path to a goal location, but ultimately determines that the goal location cannot be reached, and therefore the robot stops in an unexpected location. 
 ---
  
 #### Notes

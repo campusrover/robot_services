@@ -286,6 +286,8 @@ def parse(message):
 		patrol = True
 	elif message == 'stop patrol':
 		patrol = False
+	elif message != '': 
+		rospy.loginfo("[feedback] invalid command")
 
 # generates a waypoint the input amount in front of the robot and adds this waypoint to the deque
 def generate_forward(amount):
