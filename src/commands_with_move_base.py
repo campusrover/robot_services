@@ -175,6 +175,7 @@ def parse(message):
 
 	# boolean representing whether or not the default value should be used
 	default = False
+	got_coords = False
 
 	# if there was an input value
 	if len(amount) == 1: 
@@ -184,6 +185,7 @@ def parse(message):
 	elif len(amount) == 2:
 		x = float(amount[0])
 		y = float(amount[1])
+		got_coords = True
 	# otherwise use the default value
 	else: 
 		default = True
@@ -198,7 +200,7 @@ def parse(message):
 	else:
 		reset_last_in()
 	# if the message starts with 'go to'
-	if message[:5] == 'go to':
+	if message[:5] == 'go to' and got_coords:
 		# generate a new waypoint at the given x y coord
 		generate_coord(x, y)
 		# add the message to the deque of commands
@@ -246,19 +248,19 @@ def parse(message):
 			# stop rotation
 			rotation_client.cancel_goal()
 			# publish feedback stating that rotation has been stopped
-			rospy.loginfo("paused rotation estimation")
+			rospy.loginfo("[feedback] paused rotation estimation")
 			# update boolean that states a turn has been stopped in the middle of rotation
 			turn_stopped = True
 			# convert the radians that have been completed so far to degrees
 			degs_completed = int(round(math.degrees(rot_completed)))
 			# publish an update on how much of the turn was finished before stopping
-			rospy.loginfo("rotaiton completed: " + str(degs_completed) + " degrees")
+			rospy.loginfo("[feedback] rotaiton completed: " + str(degs_completed) + " degrees")
 		# if the robot is not currently rotating
 		else: 	
 			# cancel the move_base goal
 			client.cancel_goal()
 			# publish a message stating that goals have been paused
-			rospy.loginfo("paused current goal")
+			rospy.loginfo("[feedback] paused current goal")
 		# update the stopped status to note that the robot has stopped
 		stopped = True
 	# if a message corresponding to a control boolean is received, 
@@ -434,16 +436,16 @@ def check_explored(start):
 def generate_success(goal, cmd):
 	# go forward success message
 	if cmd[1][0] == "go forward":
-		return "successfully went forward " + str(cmd[1][1]) + "m to (" + str(goal[0][0]) + ", " + str(goal[0][1]) + ")"
+		return "[feedback] successfully went forward " + str(cmd[1][1]) + "m to (" + str(goal[0][0]) + ", " + str(goal[0][1]) + ")"
 	# go to success message
 	elif cmd[1][0] == "go to": 
-		return "successfully navigated to (" + str(goal[0][0]) + ", " + str(goal[0][1]) + ")"
+		return "[feedback] successfully navigated to (" + str(goal[0][0]) + ", " + str(goal[0][1]) + ")"
 	# turn success message	
 	elif cmd[1][0] == "turn left" or cmd[1][0] == "turn right":
-		return "rotation verified"
+		return "[feedback] rotation verified"
 	# go back success message	
 	elif cmd[1][0] == "go back": 
-		return "returned to previous location"
+		return "[feedback] returned to previous location"
 	else: 
 		return "" 
 
@@ -451,16 +453,16 @@ def generate_success(goal, cmd):
 def currently_doing(goal, cmd):
 	# go forward current status
 	if cmd[1][0] == "go forward":
-		return "currently looking for a path forward " + str(cmd[1][1]) + "m to (" + str(goal[0][0]) + ", " + str(goal[0][1]) + ")"
+		return "[feedback] currently looking for a path forward " + str(cmd[1][1]) + "m to (" + str(goal[0][0]) + ", " + str(goal[0][1]) + ")"
 	# go to current status	
 	elif cmd[1][0] == "go to":
-		return "currently looking for a path to (" + str(goal[0][0]) + ", " + str(goal[0][1]) + ")"
+		return "[feedback] currently looking for a path to (" + str(goal[0][0]) + ", " + str(goal[0][1]) + ")"
 	# turn current status
 	elif cmd[1][0] == "turn left" or cmd[1][0] == "turn right":
-		return "verifying rotation"
+		return "[feedback] verifying rotation"
 	# go back current status
 	elif cmd[1][0] == "go back":
-		return "previous location (" + str(goal[0][0]) + ", " + str(goal[0][1]) + ")"
+		return "[feedback] previous location (" + str(goal[0][0]) + ", " + str(goal[0][1]) + ")"
 	else: 
 		return ""
 	
@@ -519,7 +521,7 @@ if __name__ == '__main__':
 					clear_queues()
 					undo(starting_point)
 					reset_all_control_booleans()
-					rospy.loginfo("returning to previous location")
+					rospy.loginfo("[feedback] returning to previous location")
 				# if it receives a command to cancel all or to cancel, nothing needs to be done
 				# because there are already 0 nav goals in the deque, so wait for a continue 
 				# command and then restart with an empty deque
@@ -527,8 +529,8 @@ if __name__ == '__main__':
 					# after restart command, reset all control booleans and continue
 					clear_queues()
 					reset_all_control_booleans()
-					rospy.loginfo("cancelled goal")
-					rospy.loginfo("waiting for commands")
+					rospy.loginfo("[feedback] cancelled goal")
+					rospy.loginfo("[feedback] waiting for commands")
 				# if a continue command is received without a cancel command then we 
 				elif restart: 
 					# if we have taken in a command, and it wasn't rotation
@@ -541,7 +543,7 @@ if __name__ == '__main__':
 						# reset all control booleans and continue
 						reset_all_control_booleans()
 						# publish feedback 
-						rospy.loginfo("restarting current goal")
+						rospy.loginfo("[feedback] restarting current goal")
 					# if it was rotation that we paused, 
 					elif turn_stopped:
 						# re-add an updated version of the rotation goal
@@ -549,13 +551,13 @@ if __name__ == '__main__':
 						# reset the control booleans
 						reset_all_control_booleans()
 						# publish feedback
-						rospy.loginfo("restarting current goal")
+						rospy.loginfo("[feedback] restarting current goal")
 					# if we actually haven't received any commands
 					else:
 						# reset the control booleans
 						reset_all_control_booleans()
 						# publish feedback that we are waiting for commands
-						rospy.loginfo("waiting for commands")
+						rospy.loginfo("[feedback] waiting for commands")
 			# handles cases where there are waypoints in the deque
 			while not len(waypoints) == 0:
 				# if a stop command has been received
@@ -564,7 +566,7 @@ if __name__ == '__main__':
 						clear_queues()
 						undo(starting_point)
 						reset_all_control_booleans()
-						rospy.loginfo("returning to previous location")
+						rospy.loginfo("[feedback] returning to previous location")
 					# if a cancel all command is received
 					elif cancel_all:
 						# remove all planned waypoints from the deque
@@ -575,8 +577,8 @@ if __name__ == '__main__':
 							# reset all control booleans and continue
 							reset_all_control_booleans()
 							# publish feedback
-							rospy.loginfo("cancelled all planned goals")
-							rospy.loginfo("waiting for commands")
+							rospy.loginfo("[feedback] cancelled all planned goals")
+							rospy.loginfo("[feedback] waiting for commands")
 					# if a cancel command is received
 					elif cancel:
 						# if a continue command is received
@@ -596,8 +598,8 @@ if __name__ == '__main__':
 							# reset all control booleans and continue
 							reset_all_control_booleans()
 							# publish feedback
-							rospy.loginfo("cancelled current goal")
-							rospy.loginfo("continuing execution of planned goals")
+							rospy.loginfo("[feedback] cancelled current goal")
+							rospy.loginfo("[feedback] continuing execution of planned goals")
 					# if a restart command is received without any cancel commands
 					elif restart: 
 						# if we were doing something other than rotating
@@ -611,7 +613,7 @@ if __name__ == '__main__':
 							readd_partial_rotation()
 						# reset all control booleans and publish feedback
 						reset_all_control_booleans()
-						rospy.loginfo("restarting current goal")
+						rospy.loginfo("[feedback] restarting current goal")
 				# if a stop command hasn't been received 
 				else: 
 					# the next goal point is the point at the front of the waypoint deque
@@ -633,9 +635,9 @@ if __name__ == '__main__':
 							degree = deg[0]
 						# publish feedback (to left or right)
 						if goal_point[0][2] == -10:
-							rospy.loginfo("estimating a " + str(degree) + " degree turn to the right")
+							rospy.loginfo("[feedback] estimating a " + str(degree) + " degree turn to the right")
 						else: 
-							rospy.loginfo("estimating a " + str(degree) + " degree turn to the left")
+							rospy.loginfo("[feedback] estimating a " + str(degree) + " degree turn to the left")
 						# calculate number of full rotations completed in this cmd					
 						if (float(degree) % 360) == 0:	
 							extra_rot = -(float(degree)//360)
@@ -665,7 +667,7 @@ if __name__ == '__main__':
 						rotation_client.wait_for_result()
 						# if the rotation succeeded
 						if rotation_client.get_state() == 3:
-							rospy.loginfo("successfully estimated rotation")
+							rospy.loginfo("[feedback] successfully estimated rotation")
 							# reset the amount of rotation completed
 							reset_all_control_booleans()
 					# as long as we haven't paused
@@ -688,24 +690,24 @@ if __name__ == '__main__':
 							moved = check_explored(starting_point)
 							# if it has moved, publish feedback and wait for user input
 							if moved: 
-								rospy.loginfo("moved from expected path and failed to reach goal")
-								rospy.loginfo("user input is required: keep going OR go back")
+								rospy.loginfo("[feedback] moved from expected path and failed to reach goal")
+								rospy.loginfo("[feedback] user input is required: keep going OR go back")
 								while moved:
 									# if user says to continue, proceed with queued goals
 									if keep_going:
-										rospy.loginfo("continuing from new location")
+										rospy.loginfo("[feedback] continuing from new location")
 										reset_all_control_booleans()
 										moved = False
 									# if user says to go back to prior location
 									elif go_back:
 										# queue a goal of the prior location and continue
 										undo(starting_point)
-										rospy.loginfo("returning to previous location")
+										rospy.loginfo("[feedback] returning to previous location")
 										reset_all_control_booleans()
 										moved = False
 							# if the robot did not move, publish failure status
 							else:
-								rospy.loginfo("unable to complete goal")
+								rospy.loginfo("[feedback] unable to complete goal")
 		rate.sleep()
 
 

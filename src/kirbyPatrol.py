@@ -46,8 +46,8 @@ def input_callback(msg):
 	if len(msg.data) > 5 and msg.data[:6] == 'patrol':
 		params = grab_amount.findall(msg.data)
 		if len(params) > 0 and (len(params) != 3 or int(params[0]) < 2):
-			rospy.loginfo("invalid input parameters")
-			rospy.loginfo("terminating")
+			rospy.loginfo("[feedback] invalid input parameters")
+			rospy.loginfo("[feedback] terminating")
 			termination.publish("terminating")
 		else: 
 			if len(params) == 3:
@@ -113,7 +113,7 @@ if __name__=='__main__':
 			# radius and polygon number
 			waypoints = create_waypoints(radius)
 			
-			rospy.loginfo("creating " + str(POLYGON) + " waypoints around a circle with radius " + str(radius))
+			rospy.loginfo("[feedback] creating " + str(POLYGON) + " waypoints around a circle with radius " + str(radius))
 			# create new state machine to hold all waypoints
 			patrol = StateMachine(['succeeded','preempted','aborted','failure'])
 
@@ -185,20 +185,20 @@ if __name__=='__main__':
 					# can only be reached if each previous state failed 
 					StateMachine.add('FAIL',Failure(),transitions={'failure':'failure'})
 				
-				rospy.loginfo("patrolling")
+				rospy.loginfo("[feedback] patroling")
 				# will return 'failure' if FAIL state has been reached	
 				outcome = patrol.execute()
 
 				# if FAIL state was reached, loop should terminate
 				if outcome == 'failure':
 					if preempted:
-						rospy.loginfo("patrolling cancelled")
+						rospy.loginfo("[feedback] patroling cancelled")
 					else:
-						rospy.loginfo("no more explorable waypoints")
+						rospy.loginfo("[feedback] no more explorable waypoints")
 					set_failure(True)
 					termination.publish("terminating")
-					rospy.loginfo("terminating")
+					rospy.loginfo("[feedback] terminating")
 				else: 
 					radius += INC_RADIUS
-					rospy.loginfo("completed an exploration loop")
+					rospy.loginfo("[feedback] completed an exploration loop")
 		
