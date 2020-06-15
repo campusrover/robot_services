@@ -225,6 +225,8 @@ def parse(message):
 			# the default value for rotation is 90 degrees
 			generate_rotation(90)
 			commands.append((message,("turn left",90)))
+		elif amount < 0:
+			rospy.loginfo("[feedback] invalid command, angle must be positive")
 		else: 
 			generate_rotation(amount)
 			commands.append((message,("turn left",amount)))
@@ -237,6 +239,8 @@ def parse(message):
 			# the default value for rotation is 90 degrees
 			generate_rotation(-90)
 			commands.append((message,("turn right",90)))
+		elif amount < 0:
+			rospy.loginfo("[feedback] invalid command, angle must be positive")
 		else: 
 			generate_rotation(-amount)
 			commands.append((message,("turn right",amount)))
