@@ -24,6 +24,7 @@
 
 ##### "turn left/right (X)"
 * turn left or right the specified number of degrees or a default of 90 if none is specified
+	* X must be positive
 	* rotation is split into an estimation and verification step
 	* most of the turn is completed and the goal position is estimated by directly setting his angular velocity and allowing him to turn for a specific amount of time. 
 	* after this estimation a goal position is generated and sent to the same thing that handles navigation in 'go forward' and 'go to'. This is an attempt to make rotation as precise as possible. 
@@ -115,6 +116,8 @@
 	* "verifying rotation"
 * At the end of the verification portion:
 	* "rotation verified"
+* If it receives a rotation command with a negative angle
+	* "invalid command, angle must be positive"
 
 ##### go to:
 * After it begins execution of a go to command:
