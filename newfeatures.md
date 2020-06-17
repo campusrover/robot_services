@@ -22,18 +22,18 @@ NEW FEATURES
 * Only one command at a time.
     * durations are in seconds
     * distances are in cm
-    * speeds are in cm/second
+    * speeds are in cm/second or degrees/second
     * angles are in degrees
 * As the command is being executed the variable is changed to some indication of status (or progress)
 * Once it is done the variable changes to success, invalid, stalled
 
 Here the the initial three commands
 
-{"cmd": "move", "duration": 1, "distance": 25 }
+a. {"cmd": "move", "duration": "1", "distance": "25", "speed": "25" } # Note that not all three can be supplied. Just two of the three and the third is computed
 
-{"cmd": "rotate", "duration": 1, "angle": 5 }
+b. {"cmd": "rotate", "duration": "1", "angle": "90", "speed": "90" } # Note that not all three can be supplied. Just two of the three and the third is computed
 
-{"cmd": "stop"}
+c. {"cmd": "stop"}
 
 ---
 
