@@ -11,7 +11,7 @@ if __name__ == '__main__':
 	pub = rospy.Publisher('redis_cmd_listener', String, queue_size=10)
 	rospy.init_node('redis_cmd_listener')
 
-	redis_key = "Cmd"
+	redis_key = "Kirby"
 	r_namespace = rospy.get_param("redis_ns", "")
 	if r_namespace:
 		redis_key = r_namespace + "/" + redis_key
