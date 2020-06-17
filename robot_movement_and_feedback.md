@@ -57,6 +57,8 @@
 ##### "cancel all"
 * a cancel all command can only be given after a stop command. It cancels all goals in the queue, including the current one. When a continue command is received the robot will stay where it is, waiting for new commands. 
 
+* Note: a "continue" command must follow any stop, cancel, or cancel all command, in order to tell the robot to start listening for commands again. 
+
 ##### "go back" 
 * a go back command can be given after a stop command. The robot will cancel its current goal and any queued goals and return to the location from which it started the most recent goal. From there it will wait for additional commands, as any queued commands have been cancelled. 
 
