@@ -47,6 +47,7 @@ To easily spawn multiple fiducials to gazebo, try the [Gazebo Fiducial Spawner P
     * `fov`: "field of view", in radians
     * `slices`: the number of pices the lidar has been broken into
     * `data`: the closest range in each slice, from front going ccw
+10: "Kirby": `LPOP`ed by `kirby_listener.py`
 
 ## Namespacing
 
