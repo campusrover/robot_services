@@ -1,7 +1,7 @@
 <launch>
 <node pkg="robot_services" name="commands_with_move_base" type="commands_with_move_base.py">
 </node>
-<node pkg="robot_services" name="cmdListner" type="kirby_listener.py" output="screen">
+<node pkg="robot_services" name="kirby_listener" type="kirby_listener.py" output="screen">
 </node>
 <node pkg="robot_services" name="rotation_action_server" type="rotation_action_server.py">
 </node>
