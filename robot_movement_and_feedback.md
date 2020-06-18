@@ -229,6 +229,7 @@ Summary of Commands
 | Command | Effect | Notes |
 |---|---|---|
 |patrol | initiate the patrolling algorithm | an algorithm to try to explore the whole reachable space |
+| stop patrol | stop the robot's patrolling algorithm | 
 | go to x y | go to coordinates x y | Works within navigability. From where you are try to plot a route to x and y. Uses navigation.
 | turn left/right | turn the robot | Same
 | stop | stop current processing | Commands are executed in sequence. More like a "pause" |
