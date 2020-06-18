@@ -1,11 +1,11 @@
 <launch>
-<node pkg="robot_services" name="commands_with_move_base" type="commands_with_move_base.py">
+<node pkg="robot_services" name="kirby_commands" type="kirby_commands.py">
 </node>
 <node pkg="robot_services" name="kirby_listener" type="kirby_listener.py" output="screen">
 </node>
 <node pkg="robot_services" name="rotation_action_server" type="rotation_action_server.py">
 </node>
-<node pkg="robot_services" name="kirbyPatrol" type="kirbyPatrol.py">
+<node pkg="robot_services" name="kirby_patrol" type="kirby_patrol.py">
 </node>
 <include file="$(find turtlebot3_navigation)/launch/move_base.launch"/>
 </launch>
