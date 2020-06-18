@@ -7,3 +7,4 @@
 *.DS_Store*
 *dump*.json
 *redis_login.yaml
+*special_log_keys.json
