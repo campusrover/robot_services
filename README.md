@@ -35,19 +35,18 @@ To easily spawn multiple fiducials to gazebo, try the [Gazebo Fiducial Spawner P
     * `level`: a string describing the type of log
     * `from`: the name of the nod ethat logged this message
     * `message`: the body of the message
-6. "Feedback": Identical to "Log", but reserved for messages that are generated in response to redis activity
-7. "Log_Settings": see the section below on Updating Log Settings
-8. "Fiducials": JSON that is `SET` by `fiducial_bridge.py` JSON includes info like:
+6. "Log_Settings": see the section below on Updating Log Settings
+7. "Fiducials": JSON that is `SET` by `fiducial_bridge.py` JSON includes info like:
     * `fid_count` representing the number of known fiducials
     * `dict` representing the fiducial marker format (see aruco marker documentation) 
     * `frame`, which will be `odom` if the transform from the camera link to odom is available, otherwise it will be `camera`, indicating that all values in the fiducial list are in coordinates relative to the robot, not the center of odometry. 
     * `data` is a list of known fiducial markers, where each element has a `fid` representing the marker's id number, and a `pose` which has `location` (in meters) and `orientation` components (in euler radians)
-9: "Lidar": JSON is `SET` by `lidar_bridge.py` containing simplified lidar data - the shortest range in each slice of it's fov.
+8: "Lidar": JSON is `SET` by `lidar_bridge.py` containing simplified lidar data - the shortest range in each slice of it's fov.
     * `max_range` and `min_range` in meters
     * `fov`: "field of view", in radians
     * `slices`: the number of pices the lidar has been broken into
     * `data`: the closest range in each slice, from front going ccw
-10: "Kirby": `LPOP`ed by `kirby_listener.py`
+9: "Kirby": `LPOP`ed by `kirby_listener.py`
 
 ## Namespacing
 
@@ -89,7 +88,7 @@ the "Log" and "Feedback" keys operate on a whitelist system. If `src/log_whiteli
 
 * nodes with whitelist level `0` are not whitelisted. 
 * nodes with whitelist level `1` can send their logs to the "Log" key
-* nodes with whitelist level `2` have level `1` priviledges and can send logs to the "Feedback" key
+* nodes with whitelist level `2` have level `1` priviledges and can create new keys to send custom logs to (see the next section - custom logging keys)
 
 `src/log_whitelist.json` stores key/value pairs where the keys are the names of nodes and the values are their whitelist level. Please note that node names start with a `/`. 
 
@@ -102,7 +101,29 @@ to this key, `SET` either 0, 1 or 2 to update that key's whitelist level
 
 ### Example
 
-to change `lidar_bridge.py` to gain feedback access, use `set mynamespace/Log_Settings/lidar_bridge 2`
+to change `lidar_bridge.py` to gain custom access, use `set mynamespace/Log_Settings/lidar_bridge 2`
+
+## Custom Logging Keys
+
+For a level-2 whitelist node to create their own keys, they must begin a log message with this pattern: `[<key> <code>]` where `key` is the name of the desired redis key to send this message to, and `code` is some sort of uniform string that describes the type of message. both `key` and `code` must **not** contain spaces. 
+
+`key` will be capitalized (`Key`) and `code` will be uppercased (`CODE`).
+
+JSON gets `RPUSH`ed to custom log keys. Custom log keys are subject to resets. Custom log keys are stored in `src/special_log_keys.json`
+
+### Example
+
+if the following line is inside `example.py` and `example` has logging level 2 powers:
+
+``` python
+rospy.loginfo("[example_demo all_ok] creating a new key is easy")
+```
+
+Then `lpop <ns>/Example_Demo` will return: 
+
+``` sh
+"{\"level\": \"INFO\", \"from\": \"/example\", \"code\": \"ALL_OK\", \"message\": \" creating a new key is easy\"}"
+```
 
 ## Loose Ends and Areas for Improvement
 
