@@ -47,7 +47,7 @@ def input_callback(msg):
 		params = grab_amount.findall(msg.data)
 		if len(params) > 0 and (len(params) != 3 or int(params[0]) < 2):
 			rospy.loginfo("[kirby_feedback invalid] invalid input parameters")
-			rospy.loginfo("[kirby_feedback stop_patrol] terminating")
+			rospy.loginfo("[kirby_feedback finish_patrol] terminating")
 			termination.publish("terminating")
 		else: 
 			if len(params) == 3:
@@ -197,7 +197,7 @@ if __name__=='__main__':
 						rospy.loginfo("[kirby_feedback finish_patrol] no more explorable waypoints")
 					set_failure(True)
 					termination.publish("terminating")
-					rospy.loginfo("[kirby_feedback stop_patrol] terminating")
+					#rospy.loginfo("[kirby_feedback stop_patrol] terminating")
 				else: 
 					radius += INC_RADIUS
 					rospy.loginfo("[kirby_feedback completed_loop] completed an exploration loop")

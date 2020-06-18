@@ -641,9 +641,9 @@ if __name__ == '__main__':
 							degree = deg[0]
 						# publish feedback (to left or right)
 						if goal_point[0][2] == -10:
-							rospy.loginfo("[kirby_feedback estimating_rotation] estimating a " + str(degree) + " degree turn to the right")
+							rospy.loginfo("[kirby_feedback estimate_rotation] estimating a " + str(degree) + " degree turn to the right")
 						else: 
-							rospy.loginfo("[kirby_feedback estimating_rotation] estimating a " + str(degree) + " degree turn to the left")
+							rospy.loginfo("[kirby_feedback estimate_rotation] estimating a " + str(degree) + " degree turn to the left")
 						# calculate number of full rotations completed in this cmd					
 						if (float(degree) % 360) == 0:	
 							extra_rot = -(float(degree)//360)
