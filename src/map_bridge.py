@@ -21,10 +21,8 @@ from tf.transformations import euler_from_quaternion
 import numpy as np 
 from nav_msgs.msg import OccupancyGrid
 from std_msgs.msg import Empty
-from os.path import dirname, realpath
-from os import sep
-import sys
 from tavares_padilha_line_merge import Point, Line_Segment, merge_lines, convert_coords
+import bridge_tools as bt
 from math import pi
 from collections import OrderedDict
 
@@ -43,10 +41,6 @@ def brute_force_consolodation(lines, distance_diff, angle_diff, min_len):
                     did_a_merge = True
         ls = sorted(list(ls_set), key=lambda x: x.length, reverse=True)   
     return sorted([l.fourtuple() for l in ls if l.length >= min_len], key=lambda x: (x[0], x[1], x[2], x[3]))
-
-
-def get_nearby_file(filename):
-    return dirname(realpath(sys.argv[0])) + sep + filename
 
 
 def map_cb(msg):
@@ -97,8 +91,7 @@ def map_cb(msg):
         ("data", walls)
     ]))
     # save most recent copy of JSON to a local file
-    with open(get_nearby_file("walldump.json"), 'w') as f:
-        json.dump(json.loads(package), f)
+    bt.save_json_file("walldump.json", json.loads(package))
 
     # push to redis
     redis.rpush(redis_key, str(package))
@@ -124,17 +117,8 @@ def reset_cb(msg):
 if __name__ == "__main__":
     # init node and get redis info from rosparam. use local redis if not all params provided
     rospy.init_node("map_bridge")
-    r_serv = rospy.get_param("redis_server", "")
-    r_port = rospy.get_param("redis_port", "")
-    r_pass = rospy.get_param("redis_pw", "")
-    if r_serv and r_port and r_pass:
-        redis = redis.Redis(host=r_serv, port=int(r_port), password=r_pass)
-    else:
-        redis = redis.Redis()
-    redis_key = "Map"
-    r_namespace = rospy.get_param("redis_ns", "")
-    if r_namespace:
-        redis_key = r_namespace + "/" + redis_key
+    redis = bt.redis_client()
+    redis_key = bt.namespace_key("Map")
 
     queue_size = rospy.get_param("redis_qs", 5)
     map_sub = rospy.Subscriber("/map", OccupancyGrid, map_cb)
@@ -150,11 +134,11 @@ if __name__ == "__main__":
             map_shift, map_rot = listener.lookupTransform("odom", "map", rospy.Time(0))  # gives us the tf from odom to map. values inverted for tf from map to odom. 
             map_rot = euler_from_quaternion(map_rot)
             if not tf_present:
-                rospy.loginfo("Odom to map tf found")
+                rospy.loginfo_once("MAP_BRIDGE: Odom to map tf found")
                 tf_present = True
         except (tf.LookupException, tf.ConnectivityException, tf.ExtrapolationException):
             if tf_present:
-                rospy.loginfo("no transform from odom to map")
+                rospy.loginfo_once("MAP_BRIDGE: no transform from odom to map")
                 tf_present = False
             continue
         # trim queue size

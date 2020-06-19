@@ -17,7 +17,7 @@
     <param name="lidar_slices" value="$(arg lidar_slices)"/>
     <!-- launch map and odom nodes -->
     <node pkg="robot_services" name="map_bridge" type="map_bridge.py" output="screen"/>
-    <node pkg="robot_services" name="movement_bridge" type="movement_bridge.py" output="screen"/>
+    <node pkg="robot_services" name="movement_bridge" type="odom_bridge.py" output="screen"/>
     <node pkg="robot_services" name="reset_bridge" type="reset_bridge.py" output="screen"/>
     <node pkg="robot_services" name="log_bridge" type="log_bridge.py" output="screen"/>
     <node pkg="robot_services" name="lidar_bridge" type="lidar_bridge.py" output="screen"/>

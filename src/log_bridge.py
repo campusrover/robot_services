@@ -2,9 +2,9 @@
 import redis, rospy, json
 from rosgraph_msgs.msg import Log
 from std_msgs.msg import Empty
-from map_bridge import get_nearby_file
 from std_msgs.msg import Empty
 from collections import OrderedDict
+import bridge_tools as bt 
 
 def log_cb (msg):
     global special_log_keys
@@ -30,13 +30,10 @@ def log_cb (msg):
                 ("code", code.upper()),
                 ("message", message)
             ]))
-            key = '_'.join([x.capitalize() for x in key.split('_')])  # turns "key_name" to "Key_Name"
-            if r_namespace:
-                key = r_namespace + "/" + key
+            key = bt.namespace_key('_'.join([x.capitalize() for x in key.split('_')])) # turns "key_name" to "Key_Name"
             redis.rpush(key, str(package))
             special_log_keys.add(key)
-            with open(get_nearby_file('special_log_keys.json'), 'w') as f:
-                json.dump(list(special_log_keys), f)
+            bt.save_json_file("special_log_keys.json", list(special_log_keys))
         # otherwise, just send to the standard log key
         else:
             redis.rpush(redis_key, str(package))
@@ -56,33 +53,15 @@ def reset_cb(msg):
 if __name__ == "__main__":
     global whitelist
     rospy.init_node("log_bridge")
-    r_serv = rospy.get_param("redis_server", "")
-    r_port = rospy.get_param("redis_port", "")
-    r_pass = rospy.get_param("redis_pw", "")
-    if r_serv and r_port and r_pass:
-        redis = redis.Redis(host=r_serv, port=int(r_port), password=r_pass)
-    else: 
-        redis = redis.Redis()
-    redis_key = "Log"
-    redis_key2 = "Log_Settings"
-    r_namespace = rospy.get_param("redis_ns", "")
-    if r_namespace:
-        redis_key = r_namespace + "/" + redis_key
-        redis_key2 = r_namespace + "/" + redis_key2
-    fid_tf_sub = rospy.Subscriber('/rosout', Log, log_cb)
+    redis = bt.redis_client()
+    redis_key = bt.namespace_key("Log")
+    redis_key2 = bt.namespace_key("Log_Settings")
+
+    roslog_sub = rospy.Subscriber('/rosout', Log, log_cb)
     reset_sub = rospy.Subscriber("/reset", Empty, reset_cb)
-    try:
-        with open(get_nearby_file('log_whitelist.json'), 'r') as f:
-            whitelist = json.load(f)
-    except:  # otherwise, whitelist is empty
-        whitelist = dict()
-    try:
-        with open(get_nearby_file('special_log_keys.json'), 'r') as f:
-            special_log_keys = set(json.load(f))
-    except: 
-        special_log_keys = set()
+    whitelist = bt.load_json_file("log_whitelist.json", dict())
+    special_log_keys = set(bt.load_json_file("special_log_keys.json", []))
     rate = rospy.Rate(1)
-    print('Hello world')
     while not rospy.is_shutdown():
         keys = redis.scan_iter(redis_key2 + "*")  # get all the keys under the ns/Log_Settings key domain
         update = False
@@ -99,6 +78,5 @@ if __name__ == "__main__":
                     rospy.logerr("invalid whitelist code [{}] given for node {}".format(value, name))
                     redis.set(k, curr_value)  # if an invalid value was passed, then reset the redis key value to what was in the whitelist
         if update:
-            with open(get_nearby_file('log_whitelist.json'), 'w') as f:
-                json.dump(whitelist, f)
+            bt.save_json_file("log_whitelist.json", whitelist)
         rate.sleep()

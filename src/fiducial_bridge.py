@@ -8,7 +8,7 @@ from geometry_msgs.msg import TransformStamped
 from std_msgs.msg import Empty
 from tf.transformations import euler_from_quaternion
 import tf2_ros as tf2 
-from map_bridge import get_nearby_file
+import bridge_tools as bt
 from collections import OrderedDict
 
 # pass a list of fiducials through redis. each fiducial is {"fid": x, "pose": {"location": [x, y, z], "orientation": [roll, pitch, yaw]}}. Pose is an absolute location in the odom TF frame. 
@@ -46,8 +46,7 @@ def fid_tf_cb(msg):
     ]))
     # push to redis and save most recent json to disk
     redis.set(redis_key, str(package))
-    with open(get_nearby_file("fiddump.json"), 'w') as save:
-        json.dump(json.loads(package), save)
+    bt.save_json_file("fiddump.json", json.loads(package))
 
     rospy.logdebug("********* List of seen Fids", 1) #: ", all_fids.keys(), "CURRENT:", [t.fiducial_id for t in tfs])
 
@@ -63,17 +62,9 @@ def reset_cb(msg):
 
 if __name__ == "__main__":
     rospy.init_node("fiducial_bridge")
-    r_serv = rospy.get_param("redis_server", "")
-    r_port = rospy.get_param("redis_port", "")
-    r_pass = rospy.get_param("redis_pw", "")
-    if r_serv and r_port and r_pass:
-        redis = redis.Redis(host=r_serv, port=int(r_port), password=r_pass)
-    else:
-        redis = redis.Redis()
-    redis_key = "Fiducials"
-    r_namespace = rospy.get_param("redis_ns", "")
-    if r_namespace:
-        redis_key = r_namespace + "/" + redis_key
+    redis = bt.redis_client()
+    redis_key = bt.namespace_key("Fiducials")
+
     queue_size = rospy.get_param("redis_qs", 5)
     fid_tf_sub = rospy.Subscriber('/fiducial_transforms', FiducialTransformArray, fid_tf_cb)
     reset_sub = rospy.Subscriber("/reset", Empty, reset_cb)

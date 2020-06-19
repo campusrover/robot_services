@@ -1,20 +1,14 @@
 #! /usr/bin/python
 import rospy, redis
 from std_msgs.msg import Empty
+import bridge_tools as bt
 
 if __name__ == "__main__":
     rospy.init_node("reset_bridge")
-    r_serv = rospy.get_param("redis_server", "")
-    r_port = rospy.get_param("redis_port", "")
-    r_pass = rospy.get_param("redis_pw", "")
-    if r_serv and r_port and r_pass:
-        redis = redis.Redis(host=r_serv, port=int(r_port), password=r_pass)
-    else:
-        redis = redis.Redis()
-    redis_key = "Bridge_Reset"
-    r_namespace = rospy.get_param("redis_ns", "")
-    if r_namespace:
-        redis_key = r_namespace + "/" + redis_key
+    redis = bt.redis_client()
+    redis_key = bt.namespace_key("Bridge_Reset")
+
+
     reset_pub = rospy.Publisher("/reset", Empty, queue_size=10)
 
     hz = 2
