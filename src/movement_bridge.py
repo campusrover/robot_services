@@ -27,7 +27,6 @@ def scan_cb(msg):
 
 def execute_command(command_json):
     global flags, current_twist, expiration_time, current_cmd
-    print(command_json)
     approved = True
     cmds = ["stop", "move", "rotate"]
     units = {"move":"distance", "rotate":"angle"}
@@ -38,7 +37,7 @@ def execute_command(command_json):
         if action != "stop":
             provided_args = set(["speed", "duration", "distance", "angle"]).intersection(set(given_params))
             if len(provided_args) < 2:
-                rospy.logerr("[cmd_feedback invalid] not enough informaton given. for move or rotate please provide at least 2 of 3 [speed, duration, distance/angle]. Aborting.")
+                rospy.logerr("[cmd_feedback invalid] not enough informaton given. for move or rotate please provide at least 2 of 3 (speed, duration, distance/angle). Aborting.")
                 approved = False
             elif len(set(["distance", "angle"]).intersection(provided_args)) > 1:
                 rospy.logerr("[cmd_feedback invalid] Please provide distance or angle, not both. Aborting.")
@@ -70,7 +69,6 @@ def execute_command(command_json):
                             speed = delta/duration
                 
         t = Twist()
-        print("{} speed: {}".format(action, speed))  # TODO delete once debugged
         if action == 'rotate':
             speed *= math.pi/180  # do rotate
             if abs(speed) > 2.8:   # hard-coded tb3 speed 

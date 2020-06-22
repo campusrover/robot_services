@@ -8,7 +8,7 @@
     <arg name="model" default="$(env TURTLEBOT3_MODEL)" doc="model type [burger, waffle, waffle_pi]"/>
     <!-- ROS parameterized redis server info-->
     <group if="$(eval arg('comm') == 'server')">
-        <rosparam command="load" file="$(dirname)/redis_login.yaml"/>
+        <rosparam command="load" file="$(dirname)/redis_login.yaml"/>  <!--This file is availavle on the campusroveriv slack channel-->
     </group>
     <param name="redis_ns" value="$(arg ns)"/>
     <param name="redis_qs" value="$(arg queue_size)"/>
