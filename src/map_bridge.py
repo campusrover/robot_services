@@ -76,27 +76,28 @@ def map_cb(msg):
     
     lines = cv2.HoughLinesP(g_img, 5, np.pi/180, intersections, min_line_length, dist) # started with  rho = 5, minint = 45, minlen = 30, dist=0
     
-    # convert lines list into better list where coords are in meters and have same origin as odom
-    walls = []
-    for l in lines: 
-        walls.append([int(l[0,0]), int(l[0,1]), int(l[0,2]), int(l[0,3])])
-    walls = brute_force_consolodation(walls, dist, pi / 12, 4)
-    walls = convert_coords(walls, (origin.position.x, origin.position.y), (width, height), res, (map_shift, map_rot))
-    
-    package = json.dumps(OrderedDict([
-        ("id", map_id), 
-        ("line_count", len(walls)),
-        ("width", round(width * res, 3)),
-        ("height", round(height * res, 3)),
-        ("data", walls)
-    ]))
-    # save most recent copy of JSON to a local file
-    bt.save_json_file("walldump.json", json.loads(package))
+    if lines:
+        # convert lines list into better list where coords are in meters and have same origin as odom
+        walls = []
+        for l in lines: 
+            walls.append([int(l[0,0]), int(l[0,1]), int(l[0,2]), int(l[0,3])])
+        walls = brute_force_consolodation(walls, dist, pi / 12, 4)
+        walls = convert_coords(walls, (origin.position.x, origin.position.y), (width, height), res, (map_shift, map_rot))
+        
+        package = json.dumps(OrderedDict([
+            ("id", map_id), 
+            ("line_count", len(walls)),
+            ("width", round(width * res, 3)),
+            ("height", round(height * res, 3)),
+            ("data", walls)
+        ]))
+        # save most recent copy of JSON to a local file
+        bt.save_json_file("walldump.json", json.loads(package))
 
-    # push to redis
-    redis.rpush(redis_key, str(package))
-    # save what the map looks like to ros to a local file
-    cv2.imwrite(get_nearby_file('bw_map_img.jpg'), g_img)
+        # push to redis
+        redis.rpush(redis_key, str(package))
+        # save what the map looks like to ros to a local file
+        cv2.imwrite(bt.get_nearby_file('bw_map_img.jpg'), g_img)
 
 def reset_cb(msg):
     # empty the list 

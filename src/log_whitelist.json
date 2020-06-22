@@ -1,1 +1,1 @@
-{"/commands_with_move_base": 2, "/log_bridge": 1, "/kirbyPatrol": 2, "/kirby_listener": 2}
+{"/kirby_listener": 2, "/log_bridge": 1, "/movement_bridge": 2, "/kirbyPatrol": 2, "/commands_with_move_base": 2, "/map_bridge": 0}
