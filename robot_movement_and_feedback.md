@@ -199,6 +199,29 @@
 ##### invalid commands: 
 * If the robot receives an invalid/malformed command it publishes "invalid command" to the log. 
 
+#### FEEDBACK CODES: 
+
+| Command | Meaning | Notes |
+|---|---|---|
+| READY | the robot is waiting to take in commands 
+| INVALID | the input command is invalid
+| PAUSED | the robot has paused whatever it was doing 
+| RESTARTING | the robot is restarting any queued or in-progress goals, after being paused
+| CANCELLED_GOAL | the robot cancelled the goal it had been executing
+| CANCELLED_ALL | the robot cancelled all planned goals
+| FORWARD | the robot is executing a "forward" command
+| GO_TO | the robot is executing a "go to" command
+| ESTIMATE_ROTATION | the robot is completing step 1 of a "turn left/right" command
+| VERIFY_ROTATION | the robot is completing step 2 of a "turn left/right" command
+| SUCCESS | the robot successfully completed a goal
+| UNREACHABLE | the robot cannot complete the goal 
+| STRAYED | the robot moved from it's original location but was unable to complete its goal
+| HELP | the robot requires user input 
+| PATROL | the robot is patroling
+| PLAN_LOOP | the robot is planning its next exploration loop while patrolling
+| COMPLETED_LOOP | the robot completed an exploration loop while patrolling
+| STOP_PATROL | the robot has received a command to stop patrolling 
+| FINISH_PATROL | the robot has no more unexplored waypoints, the patrol algorithm has finished
 
 ---
 Summary of Commands
@@ -206,6 +229,7 @@ Summary of Commands
 | Command | Effect | Notes |
 |---|---|---|
 |patrol | initiate the patrolling algorithm | an algorithm to try to explore the whole reachable space |
+| stop patrol | stop the robot's patrolling algorithm | 
 | go to x y | go to coordinates x y | Works within navigability. From where you are try to plot a route to x and y. Uses navigation.
 | turn left/right | turn the robot | Same
 | stop | stop current processing | Commands are executed in sequence. More like a "pause" |
@@ -217,6 +241,7 @@ Summary of Commands
 | go back AND/OR keep going | possible responses to the robot's request for user input | these commands are only valid when robot requests user input. This will only happen if the robot moves from its original location in an attempt to find a path to a goal location, but ultimately determines that the goal location cannot be reached, and therefore the robot stops in an unexpected location. 
 ---
  
+
 #### Notes
 * These commands maintain a notion of "previous location" to which they can be returned.
 
