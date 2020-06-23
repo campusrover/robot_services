@@ -1,11 +1,16 @@
 #! /usr/bin/python
 import rospy, json, actionlib, math, redis, time
+from std_msgs.msg import Empty
 from geometry_msgs.msg import Twist, Pose
 from nav_msgs.msg import Odometry
 from sensor_msgs.msg import LaserScan
 from tf.transformations import euler_from_quaternion
 from tavares_padilha_line_merge import Point
 import bridge_tools as bt 
+
+
+def reset_cb(msg):
+    pass  # nothing to reset, but maybe in the future
 
 def odom_cb(msg):
     global pose
@@ -110,6 +115,8 @@ if __name__ == "__main__":
     odom_sub = rospy.Subscriber("/odom", Odometry, odom_cb)
     scan_sub = rospy.Subscriber("/scan", LaserScan, scan_cb)
     cmd_pub = rospy.Publisher("/cmd_vel", Twist, queue_size=3)
+    reset_sub = rospy.Subscriber("/reset", Empty, reset_cb)
+
     pose = None
     flags = {"moving": False, "forward": False, "stalled": False, "stopped": False}
     safe_thresh = 0.25
