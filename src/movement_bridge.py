@@ -143,7 +143,7 @@ if __name__ == "__main__":
         if expiration_time:
             if rospy.get_time() < expiration_time and not flags["stalled"]:
                 cmd_pub.publish(current_twist)
-                safe_thresh = current_twist.linear.x + 0.15
+                safe_thresh = abs(current_twist.linear.x) + 0.15
             else:
                 expiration_time = None  # Remove expiration time
                 cmd_pub.publish(Twist())  # publish empty twist to stop 
