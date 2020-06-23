@@ -5,7 +5,7 @@
         <rosparam command="load" file="$(dirname)/redis_login.yaml"/>  <!--This file is availavle on the campusroveriv slack channel-->
     </group>
     <param name="redis_ns" value="Nate"/>
-    <node pkg="robot_services" name="test_script" type="moove_test_script.py"/>
+    <node pkg="robot_services" name="test_script" type="move_test_script.py"/>
     <node pkg="robot_services" name="movement_bridge" type="movement_bridge.py"/>
     <node pkg="robot_services" name="log_bridge" type="log_bridge.py"/>
 </launch>
