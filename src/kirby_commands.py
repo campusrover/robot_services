@@ -442,10 +442,10 @@ def check_explored(start):
 def generate_success(goal, cmd):
 	# go forward success message
 	if cmd[1][0] == "go forward":
-		return "[kirby_feedback success] successfully went forward " + str(cmd[1][1]) + "m to (" + str(goal[0][0]) + ", " + str(goal[0][1]) + ")"
+		return "[kirby_feedback success] successfully went forward " + str(round(cmd[1][1],1)) + " m to (" + str(round(goal[0][0],1)) + ", " + str(round(goal[0][1],1)) + ")"
 	# go to success message
 	elif cmd[1][0] == "go to": 
-		return "[kirby_feedback success] successfully navigated to (" + str(goal[0][0]) + ", " + str(goal[0][1]) + ")"
+		return "[kirby_feedback success] successfully navigated to (" + str(round(goal[0][0],1)) + ", " + str(round(goal[0][1],1)) + ")"
 	# turn success message	
 	elif cmd[1][0] == "turn left" or cmd[1][0] == "turn right":
 		return "[kirby_feedback success] rotation verified"
@@ -459,16 +459,16 @@ def generate_success(goal, cmd):
 def currently_doing(goal, cmd):
 	# go forward current status
 	if cmd[1][0] == "go forward":
-		return "[kirby_feedback forward] currently looking for a path forward " + str(cmd[1][1]) + " m to (" + str(goal[0][0]) + ", " + str(goal[0][1]) + ")"
+		return "[kirby_feedback forward] currently looking for a path forward " + str(round(cmd[1][1],1)) + " m to (" + str(round(goal[0][0],1)) + ", " + str(round(goal[0][1],1)) + ")"
 	# go to current status	
 	elif cmd[1][0] == "go to":
-		return "[kirby_feedback go_to] currently looking for a path to (" + str(goal[0][0]) + ", " + str(goal[0][1]) + ")"
+		return "[kirby_feedback go_to] currently looking for a path to (" + str(round(goal[0][0],1)) + ", " + str(round(goal[0][1],1)) + ")"
 	# turn current status
 	elif cmd[1][0] == "turn left" or cmd[1][0] == "turn right":
 		return "[kirby_feedback verify_rotation] verifying rotation"
 	# go back current status
 	elif cmd[1][0] == "go back":
-		return "[kirby_feedback go_back] previous location (" + str(goal[0][0]) + ", " + str(goal[0][1]) + ")"
+		return "[kirby_feedback go_back] previous location (" + str(round(goal[0][0],1)) + ", " + str(round(goal[0][1],1)) + ")"
 	else: 
 		return ""
 	
@@ -697,7 +697,7 @@ if __name__ == '__main__':
 							# if it has moved, publish feedback and wait for user input
 							if moved: 
 								rospy.loginfo("[kirby_feedback strayed] moved from expected path and failed to reach goal")
-								rospy.loginfo("[kirby_feedback help] user input is required: keep going OR go back")
+								rospy.loginfo("[kirby_feedback help] user input is required: 'keep going' OR 'go back'")
 								while moved:
 									# if user says to continue, proceed with queued goals
 									if keep_going:
