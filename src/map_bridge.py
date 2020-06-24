@@ -76,7 +76,7 @@ def map_cb(msg):
     
     lines = cv2.HoughLinesP(g_img, 5, np.pi/180, intersections, min_line_length, dist) # started with  rho = 5, minint = 45, minlen = 30, dist=0
     
-    if lines:
+    if lines.size != 0:
         # convert lines list into better list where coords are in meters and have same origin as odom
         walls = []
         for l in lines: 

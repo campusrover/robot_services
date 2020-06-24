@@ -201,7 +201,7 @@
 
 #### FEEDBACK CODES: 
 
-| Command | Meaning | Notes |
+| Code | Meaning | Notes |
 |---|---|---|
 | READY | the robot is waiting to take in commands 
 | INVALID | the input command is invalid
@@ -213,7 +213,12 @@
 | GO_TO | the robot is executing a "go to" command
 | ESTIMATE_ROTATION | the robot is completing step 1 of a "turn left/right" command
 | VERIFY_ROTATION | the robot is completing step 2 of a "turn left/right" command
-| SUCCESS | the robot successfully completed a goal
+| GO_BACK | the robot is going back to its previous location
+| SUCCESS_FORWARD | the robot successfully completed a 'go forward' goal
+| SUCCESS_GO_TO | the robot successfully completed a 'go to' goal
+| SUCCESS_ESTIMATE_ROTATION | the robot successfully estimated the rotation necessary to complete a 'turn' goal
+| SUCCESS_VERIFY_ROTATION | the robot successfully verified its rotation estimation for a 'turn' goal
+| SUCCESS_GO_BACK | the robot successfully went back to its previous location
 | UNREACHABLE | the robot cannot complete the goal 
 | STRAYED | the robot moved from it's original location but was unable to complete its goal
 | HELP | the robot requires user input 
