@@ -442,16 +442,16 @@ def check_explored(start):
 def generate_success(goal, cmd):
 	# go forward success message
 	if cmd[1][0] == "go forward":
-		return "[kirby_feedback success] successfully went forward " + str(round(cmd[1][1],1)) + " m to (" + str(round(goal[0][0],1)) + ", " + str(round(goal[0][1],1)) + ")"
+		return "[kirby_feedback success_forward] successfully went forward " + str(round(cmd[1][1],1)) + " m to (" + str(round(goal[0][0],1)) + ", " + str(round(goal[0][1],1)) + ")"
 	# go to success message
 	elif cmd[1][0] == "go to": 
-		return "[kirby_feedback success] successfully navigated to (" + str(round(goal[0][0],1)) + ", " + str(round(goal[0][1],1)) + ")"
+		return "[kirby_feedback success_go_to] successfully navigated to (" + str(round(goal[0][0],1)) + ", " + str(round(goal[0][1],1)) + ")"
 	# turn success message	
 	elif cmd[1][0] == "turn left" or cmd[1][0] == "turn right":
-		return "[kirby_feedback success] rotation verified"
+		return "[kirby_feedback success_verify_rotation] rotation verified"
 	# go back success message	
 	elif cmd[1][0] == "go back": 
-		return "[kirby_feedback success] returned to previous location"
+		return "[kirby_feedback success_go_back] returned to previous location"
 	else: 
 		return "" 
 
@@ -673,7 +673,7 @@ if __name__ == '__main__':
 						rotation_client.wait_for_result()
 						# if the rotation succeeded
 						if rotation_client.get_state() == 3:
-							rospy.loginfo("[kirby_feedback success] successfully estimated rotation")
+							rospy.loginfo("[kirby_feedback success_estimate_rotation] successfully estimated rotation")
 							# reset the amount of rotation completed
 							reset_all_control_booleans()
 					# as long as we haven't paused
