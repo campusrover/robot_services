@@ -5,18 +5,21 @@ import redis
 import json
 from fiducial_msgs.msg import FiducialTransformArray
 from geometry_msgs.msg import TransformStamped
-from std_msgs.msg import Empty
+from std_msgs.msg import Empty, String
 from tf.transformations import euler_from_quaternion
 import tf2_ros as tf2 
 import bridge_tools as bt
 from collections import OrderedDict
 
-# pass a list of fiducials through redis. each fiducial is {"fid": x, "pose": {"location": [x, y, z], "orientation": [roll, pitch, yaw]}}. Pose is an absolute location in the odom TF frame. 
+def pulse_cb(msg):
+    echo_pub.publish(rospy.get_name())
 
+# pass a list of fiducials through redis. each fiducial is {"fid": x, "pose": {"location": [x, y, z], "orientation": [roll, pitch, yaw]}}. Pose is an absolute location in the odom TF frame. 
 def fid_tf_cb(msg):
     global all_fids
     tfs = msg.transforms
     f_id_list = []
+    update = False
     if tfs:
         bcaster = tf2.TransformBroadcaster()
         for tf in tfs:
@@ -28,27 +31,36 @@ def fid_tf_cb(msg):
             t2.child_frame_id = "fid{}".format(tf.fiducial_id)
             bcaster.sendTransform(t2)
             f_id_list.append("fid{}".format(tf.fiducial_id))
-
         for fid in f_id_list:
             try:
                 # get the tf from the fiducial to the camera or odom (if available)
                 fid_shift, fid_rot = listener.lookupTransform(frame, fid, rospy.Time(0))
                 fid_rot = euler_from_quaternion(fid_rot)
-                all_fids[fid] = {"fid": fid.strip("fid"), "pose": {"location": fid_shift, "orientation": fid_rot}}  # update list of all seen fiducials
+                if fid not in all_fids.keys():  # automatically add new fids
+                    all_fids[fid] = {"fid": fid.strip("fid"), "pose": {"location": fid_shift, "orientation": fid_rot}}  # update list of all seen fiducials
+                    update = True
+                else:  # only update a pose if it is significantly different
+                    old_shift = all_fids[fid]["pose"]["location"]
+                    old_rot = all_fids[fid]["pose"]["orientation"]
+                    shift_diff = sum([abs(i-j) for i, j in zip(old_shift, fid_shift)])
+                    rot_diff = sum([abs(i-j) for i, j in zip(old_rot, fid_rot)])
+                    if shift_diff + rot_diff > pose_update_thresh:
+                        all_fids[fid] = {"fid": fid.strip("fid"), "pose": {"location": fid_shift, "orientation": fid_rot}}  # update list of all seen fiducials
+                        update = True
+                        print("MOVE OLD FID", shift_diff + rot_diff)
             except:
                 pass
+    if update:
+        package = json.dumps(OrderedDict([ 
+            ("fid_count", len(all_fids.keys())),
+            ("dict", fid_dict),  
+            ("frame", frame),
+            ("data", [all_fids[key] for key in all_fids.keys()])
+        ]))
+        # push to redis and save most recent json to disk
+        redis.set(redis_key, str(package))
+        bt.save_json_file("fiddump.json", json.loads(package))
 
-    package = json.dumps(OrderedDict([ 
-        ("fid_count", len(all_fids.keys())),
-        ("dict", fid_dict),  
-        ("frame", frame),
-        ("data", [all_fids[key] for key in all_fids.keys()])
-    ]))
-    # push to redis and save most recent json to disk
-    redis.set(redis_key, str(package))
-    bt.save_json_file("fiddump.json", json.loads(package))
-
-    rospy.logdebug("********* List of seen Fids", 1) #: ", all_fids.keys(), "CURRENT:", [t.fiducial_id for t in tfs])
 
 def reset_cb(msg):
     # push empty JSON
@@ -68,12 +80,15 @@ if __name__ == "__main__":
     queue_size = rospy.get_param("redis_qs", 5)
     fid_tf_sub = rospy.Subscriber('/fiducial_transforms', FiducialTransformArray, fid_tf_cb)
     reset_sub = rospy.Subscriber("/reset", Empty, reset_cb)
+    pulse_sub = rospy.Subscriber("/pulse", Empty, pulse_cb)
+    echo_pub = rospy.Publisher("/pulse_echo", String, queue_size=3)
 
     # WARNING!!! this node needs to have know what the camera link is - via a param
     # for simulations, make sure to use model:=waffle_pi and cam_frame = camera_rgb_optical_frame
     cam_frame = rospy.get_param("fiducial_bridge/cam_frame", "camera")
     frame = cam_frame
     fid_dict = rospy.get_param("fiducial_bridge/dict", 7)
+    pose_update_thresh = rospy.get_param("pose_update_thresh", 0)
     all_fids = {}  # store all seen fuducial poses in this dictionary
     listener = tf.TransformListener()
     tf_present = True

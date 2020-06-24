@@ -16,7 +16,7 @@ To easily spawn multiple fiducials to gazebo, try the [Gazebo Fiducial Spawner P
 
 `fidtest.launch` is provided to test fiducial recognition and localization in isolation from other parts of the bridge.
 
-`test.launch` and `map_bridge_debug.py` are provided to test map generation in isolation. To run you will need PIL. Get it with `pip install Pillow`. `map_bridge_debug.py` draws a map based on the line segments it generates to help visualize while debgging.
+`maptest.launch` and `map_bridge_debug.py` are provided to test map generation in isolation. To run you will need PIL. Get it with `pip install Pillow`. `map_bridge_debug.py` draws a map based on the line segments it generates to help visualize while debgging.
 
 ## REDIS channels
 
@@ -24,13 +24,18 @@ To easily spawn multiple fiducials to gazebo, try the [Gazebo Fiducial Spawner P
     * `width` and `height` (in meters) 
     * `line_count` representing the number of line segments in the JSON
     * `data`, a list of line segments, represented as four-tuples representing the two endpoints of each line, [x1, y1, x2, y2]. line segment coordinates are in meters relative to the center of odometry if a TF from odom to map is available, otherwise they are relative to map center defined by origin from the map topic.
-2. "Odom": Odom JSON is `SET` by `movement_bridge.py`. JSON includes: 
+2. "Odom": Odom JSON is `SET` by `odom_bridge.py`. JSON includes: 
     * `location` as [x, y, z]
     * `orientation` as [roll, pitch, yaw]
     * `linearvelocity` in m/s
     * `angularvelocity` in rad/s. robot location is in meters relative to the center of odometry. Orientation is in radians.
 3. "Bridge_Reset": is expected to be `SET` by external applications, should be either `0` or `1`. `1` indicates a request for a reset of all Redis keys. Keys will be reset with their normal JSON structure, with 0 values in each field. After key reset occurs, the value of this key will be `SET` to `0` by `reset_bridge.py`
-4. "Cmd": `LPOP`ed by `cmdListener.py`
+4. "Cmd": `RPUSH` JSON to this key from a non-ROS application to inititate movement of the robot. Commands are `LPOP`ed and interpreted by `movement_bridge.py`. Command JSON should contain the following:
+    * `cmd`, A string that says `stop` `move` or `rotate`
+    * `distance` if `move` and `angle` if `rotate`: the amount of movement desired in meters or degrees
+    * `duration`, the amount of time to move for in seconds
+    * `speed` the speed to travel at in m/s or deg/s
+    * Besides `cmd`, two of the wo of the other three must be provided
 5. "Log": JSON `RPUSH`ed to this key. Only forwards logs from whitelisted nodes, by node name. see `src/log_whitelist.json`. JSON includes the following fields:
     * `level`: a string describing the type of log
     * `from`: the name of the nod ethat logged this message
@@ -46,7 +51,7 @@ To easily spawn multiple fiducials to gazebo, try the [Gazebo Fiducial Spawner P
     * `fov`: "field of view", in radians
     * `slices`: the number of pices the lidar has been broken into
     * `data`: the closest range in each slice, from front going ccw
-9: "Kirby": `LPOP`ed by `kirby_listener.py`
+9: "Kirby": `LPOP`ed by `kirby_listener.py`. See section Kirby Movement Commands for more information
 
 ## Namespacing
 
@@ -58,19 +63,23 @@ Refer to the `ns` launch arg below to easily set a personal namespace
 
 `bridge.launch` is the primary launch file for this package. Presently, it launches the map, odometry, reset, and movement command bridge nodes alongside SLAM. for the map bridge to work best, it needs a transform from `odom` to `map` to exist, which is provided by SLAM and AMCL (SLAM was chosen in this instance). `bridge.launch` also has the following launch arguments:
 
-* `odom_send_thresh` (float): This arg is used to change the rate at which odom updates are `set` to Redis. What the threshold describes is a sum in in the change in x position, y position and z orientation. A new update will only be sent once the total change since the past send has exceeded the threshold. Suggested values for this are between 0.1 and 0.5. The default value is 0.3. A value of 0 means odom updates are sent each time they are received.
+* `pose_update_thresh` (float): This arg is used to change the rate at which keys with information related to geometrical poses (like fiducials and odometry) are `set` to redis. Change is often measured in total absolute change from the past pose in terms of position and orientation (euler). A new update will only be sent once the total change since the past send has exceeded the threshold. Suggested values for this are between 0.1 and 0.5. The default value is 0.3. A value of 0 means odom updates are sent each time they are received.
 * `ns` (string): *n*ame*s*pace. Namespaces all redis keys to \<ns>/\<key>
 * `queue_size` (int): *q*ueue *s*ize. The maximum length for queue-based keys like `Map`. defaults to 7
 * `comm` (string). Defaults to `server`. If set to any value besides server, then the redis server will be your local machine. Useful for debugging and not clogging up a remote redis server. 
 * `lidar_slices` (int): the number points desired from lidar data. Max value 360.
 
-Use `roslaunch robot_services test.launch` to test the map bridge on any map. A few samples are included in this repo and the performance is logged in test.launch. the python module Pillow is required for test.launch.
+Use `roslaunch robot_services maptest.launch` to test the map bridge on any map. A few samples are included in this repo and the performance is logged in test.launch. the python module Pillow is required for test.launch.
 
 ## Reset
 
 Every new bridge node should support the reset operation. A reset can be requested by setting the key `Bridge_Reset` to `1`. On the ROS side, this proliferates a reset command via the `/reset` topic using a `std_msgs/Empty` message type. All each node has to do is subscribe to `/reset` and if they receive a message, their callback should reset all of the node's respective keys. Resets will set the value of each key to contain a JSON with that key's expected structure, but 0 in each field (for list keys, there will be just one 0-populated JSON)
 
-## Movement Commands
+## Status and "Pulse"
+
+Like Reset, every bridge node needs to support "Pulse" and "Echo". Status_Bridge keeps track of which nodes are "alive" and does this by sending an empty message to `/pulse` every thirty seconds. Other nodes should send an echo in response to a pulse in the form of a `std_msgs/String` containing the name of the node as a response to each pulse to the topic `/pulse_echo`. 
+
+## Kirby Movement Commands
 
 General commands supported:
 

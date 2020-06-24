@@ -43,5 +43,5 @@
         <!-- If you use gazebo, this param is already set. for an IRL robot, pass the urdf_file arg-->
         <param name="robot_description" command="$(arg urdf_file)" />
     </group>
-    <node pkg="robot_state_publisher" name="state_publisher" type="robot_state_publisher" output="screen"/>
+    <node pkg="robot_state_publisher" name="robot_state_publisher2" type="robot_state_publisher" output="screen"/>
 </launch>

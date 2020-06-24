@@ -1,6 +1,6 @@
 <launch>
     <!-- odom args-->
-    <arg name="odom_send_thresh" default="0.3"/>
+    <arg name="pose_update_thresh" default="0.3"/>
     <arg name="ns" default=""/>
     <arg name="queue_size" default="7"/>
     <arg name="lidar_slices" default="8"/>
@@ -13,7 +13,7 @@
     <param name="redis_ns" value="$(arg ns)"/>
     <param name="redis_qs" value="$(arg queue_size)"/>
     <!-- Additional params for bridge nodes-->
-    <param name="odom_thresh" value="$(arg odom_send_thresh)"/>
+    <param name="pose_update_thresh" value="$(arg pose_update_thresh)"/>
     <param name="lidar_slices" value="$(arg lidar_slices)"/>
     <!-- launch map and odom nodes -->
     <node pkg="robot_services" name="map_bridge" type="map_bridge.py" output="screen"/>

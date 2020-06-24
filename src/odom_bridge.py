@@ -8,11 +8,13 @@ import redis
 import json
 from nav_msgs.msg import Odometry
 from geometry_msgs.msg import Pose, Twist
-from std_msgs.msg import Empty
+from std_msgs.msg import Empty, String
 from tf.transformations import euler_from_quaternion
 from collections import OrderedDict
 import bridge_tools as bt
 
+def pulse_cb(msg):
+    echo_pub.publish(rospy.get_name())
 
 def odom_cb(msg):
     global px, py, pz, pose
@@ -53,11 +55,12 @@ if __name__ == '__main__':
     redis = bt.redis_client()
     redis_key = bt.namespace_key("Odom")
     
-    send_thresh = float(rospy.get_param("odom_thresh", 0))
+    send_thresh = float(rospy.get_param("pose_update_thresh", 0))
     px, py, pz = -1, -1, -1  # default previous values
     pose = None
     odom_sub = rospy.Subscriber("/odom", Odometry, odom_cb)
     reset_sub = rospy.Subscriber("/reset", Empty, reset_cb)
-    cmd_pub = rospy.Publisher("/cmd_vel", Twist, queue_size=3)
+    pulse_sub = rospy.Subscriber("/pulse", Empty, pulse_cb)
+    echo_pub = rospy.Publisher("/pulse_echo", String, queue_size=3)
 
     rospy.spin()
