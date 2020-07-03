@@ -1,5 +1,59 @@
-NEW FEATURES
+# VISION
+
+## Questions
+
+* is Redis the right way to continue to expand the API. I think so but a little research would be useful. Maybe we use it as a command queue for the new commands that I describe below.
+
+## Long term vision objectives:
+
+1. Allow non-roboticists to use Robots in their research
+    1. including virtual and real robots
+    1. Without requiring knowledge of ROS
+1. Build a virtual / remote robotics lab
+    1. Allow users from around the world to work with our robots
+    1. Manage and allocate resources (e.g. robots)
+
+## Virtual Lab Management Component (part of RSB suite)
+
+1. "A lab with an API"
+1. Authenticated users
+1. Request and be assigned a robot
+    1. Physical
+        1. From a collection of robots that are owned and are ready to go
+        1. Requesting human supervision (i.e. a lab tech physically there)
+        1. Requesting overhead video
+        1. Requesting a particular "field" to work in
+    1. Virtual
+        1. Request a particular inital environment from a set of available templates
+        1. Request may include configuration parameters (e.g. size, initial location of robot, fiducials, etc.)
+
+## RSB bindings (part of RSB suite)
+
+1. Initially rsb_py
+    1. Built by extraxting it from the pygame testbed that Pito's written
+    1. Has no other dependencies
+    1. Purpose is that user of the library doesn't have to learn REDIS
+
+1. Future
+    1. Unity?
+    1. Javacript?
+
+## rsbscript - Simple scripting abstraction (part of RSB suite)
+
+1. The rest of Pito's RSB_PY
+1. To Do
+    1. Add a "dashboard" to show current status of robot
+    1. Complete the lidar scan lines
+    1. Improve performance
+    1. Explore and design the new abstraction by writing:
+        1. A program to do a roomba walk through a closed field
+        1. A program to follow a wall
+        1. A program to solve a maze
+
+
+# NEW FEATURES
 (assume all keys start with <ns>/)
+**(@nate: please check off the ones that are done)**
 
 1. Change Key /Cmd -> /Kirby - because Kirby has a very specific set of behaviors which are at a higher level and stateful. 
 
