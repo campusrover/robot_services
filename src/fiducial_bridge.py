@@ -5,14 +5,11 @@ import redis
 import json
 from fiducial_msgs.msg import FiducialTransformArray
 from geometry_msgs.msg import TransformStamped
-from std_msgs.msg import Empty, String
 from tf.transformations import euler_from_quaternion
 import tf2_ros as tf2 
 import bridge_tools as bt
 from collections import OrderedDict
 
-def pulse_cb(msg):
-    echo_pub.publish(rospy.get_name())
 
 # pass a list of fiducials through redis. each fiducial is {"fid": x, "pose": {"location": [x, y, z], "orientation": [roll, pitch, yaw]}}. Pose is an absolute location in the odom TF frame. 
 def fid_tf_cb(msg):
@@ -47,7 +44,6 @@ def fid_tf_cb(msg):
                     if shift_diff + rot_diff > pose_update_thresh:
                         all_fids[fid] = {"fid": fid.strip("fid"), "pose": {"location": fid_shift, "orientation": fid_rot}}  # update list of all seen fiducials
                         update = True
-                        print("MOVE OLD FID", shift_diff + rot_diff)
             except:
                 pass
     if update:
@@ -61,16 +57,9 @@ def fid_tf_cb(msg):
         redis.set(redis_key, str(package))
         bt.save_json_file("fiddump.json", json.loads(package))
 
-
-def reset_cb(msg):
-    # push empty JSON
-    package = json.dumps(OrderedDict([ 
-        ("fid_count", 0),
-        ("dict", fid_dict),  
-        ("frame", frame),
-        ("data", [])
-    ]))
-    redis.set(redis_key, package)
+def fiducial_reset():
+    global all_fids
+    all_fids = {}
 
 if __name__ == "__main__":
     rospy.init_node("fiducial_bridge")
@@ -79,9 +68,8 @@ if __name__ == "__main__":
 
     queue_size = rospy.get_param("redis_qs", 5)
     fid_tf_sub = rospy.Subscriber('/fiducial_transforms', FiducialTransformArray, fid_tf_cb)
-    reset_sub = rospy.Subscriber("/reset", Empty, reset_cb)
-    pulse_sub = rospy.Subscriber("/pulse", Empty, pulse_cb)
-    echo_pub = rospy.Publisher("/pulse_echo", String, queue_size=3)
+    bt.establish_reset(redis, redis_key, bt.reset, fiducial_reset, "data", "frame", "dict", "fid_count")
+    bt.establish_pulse()
 
     # WARNING!!! this node needs to have know what the camera link is - via a param
     # for simulations, make sure to use model:=waffle_pi and cam_frame = camera_rgb_optical_frame
@@ -112,3 +100,4 @@ if __name__ == "__main__":
             frame = cam_frame
             continue
         rate.sleep()
+        

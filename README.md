@@ -23,8 +23,10 @@ To easily spawn multiple fiducials to gazebo, try the [Gazebo Fiducial Spawner P
 1. "Map": Map JSON is `RPUSH`ed to this topic by `map_bridge.py`. `LPOP` should be used to retrieve Map JSON from Redis. Map data is formatted as follows:
     * `width` and `height` (in meters) 
     * `line_count` representing the number of line segments in the JSON
+    * `origin`: a two-tuple of floats describing where the origin (0, 0) is relative to width and height - so if (w,h) = (2, 5) and origin = (1, 3) then the origin 1 unit from the left end of the width and 3 units from the bottom of the height
     * `data`, a list of line segments, represented as four-tuples representing the two endpoints of each line, [x1, y1, x2, y2]. line segment coordinates are in meters relative to the center of odometry if a TF from odom to map is available, otherwise they are relative to map center defined by origin from the map topic.
 2. "Odom": Odom JSON is `SET` by `odom_bridge.py`. JSON includes: 
+    * `odom_id` and `real_odom_id`: the sequential id of the odom updates sent to redis and updates generated in ROS, respectively
     * `location` as [x, y, z]
     * `orientation` as [roll, pitch, yaw]
     * `linearvelocity` in m/s
@@ -46,18 +48,17 @@ To easily spawn multiple fiducials to gazebo, try the [Gazebo Fiducial Spawner P
     * `dict` representing the fiducial marker format (see aruco marker documentation) 
     * `frame`, which will be `odom` if the transform from the camera link to odom is available, otherwise it will be `camera`, indicating that all values in the fiducial list are in coordinates relative to the robot, not the center of odometry. 
     * `data` is a list of known fiducial markers, where each element has a `fid` representing the marker's id number, and a `pose` which has `location` (in meters) and `orientation` components (in euler radians)
-8: "Lidar": JSON is `SET` by `lidar_bridge.py` containing simplified lidar data - the shortest range in each slice of it's fov.
+8. "Lidar": JSON is `SET` by `lidar_bridge.py` containing simplified lidar data - the shortest range in each slice of it's fov.
     * `max_range` and `min_range` in meters
     * `fov`: "field of view", in radians
     * `slices`: the number of pices the lidar has been broken into
     * `data`: the closest range in each slice, from front going ccw
-9: "Kirby": `LPOP`ed by `kirby_listener.py`. See section Kirby Movement Commands for more information
-
-## Namespacing
-
-To prevent collisions of multiple users on the same redis server, this package provides namespacing. Set the rosparam `redis_ns` to your namespace, and as a result, any of the channels above will be prefixed with your namespace. For example, a user with the namespace "greg" will have all of their redis channels prefixed with "greg/", e.g. "greg/Map", "greg/Odom" . . .
-
-Refer to the `ns` launch arg below to easily set a personal namespace
+9. "Status": JSON is `SET` by `status_bridge.py` with the following fields:
+    * `time`: the ros time at the time of the update
+    * `status`: a string that generally describes the status of robot_services based on a set of input factors
+    * `cpu`: the measured cpu usage % 
+    * `errors`: a list of nodes that have died while robot_services has been running. nodes that die upon launch won't be recorded.
+10. "Kirby": `LPOP`ed by `kirby_listener.py`. See section Kirby Movement Commands for more information
 
 ## Launch
 
@@ -71,13 +72,38 @@ Refer to the `ns` launch arg below to easily set a personal namespace
 
 Use `roslaunch robot_services maptest.launch` to test the map bridge on any map. A few samples are included in this repo and the performance is logged in test.launch. the python module Pillow is required for test.launch.
 
-## Reset
+### redis_login.yaml
 
-Every new bridge node should support the reset operation. A reset can be requested by setting the key `Bridge_Reset` to `1`. On the ROS side, this proliferates a reset command via the `/reset` topic using a `std_msgs/Empty` message type. All each node has to do is subscribe to `/reset` and if they receive a message, their callback should reset all of the node's respective keys. Resets will set the value of each key to contain a JSON with that key's expected structure, but 0 in each field (for list keys, there will be just one 0-populated JSON)
+to launch using a remote redis server, the file `redis_login.yaml` must be present in `/launch` and contain values for the rosparams `redis_server`, `redis_port` and `redis_pw`
 
-## Status and "Pulse"
+## Bridge Tools
+
+`src/bridge_tools.py` is provided to make developing new "bridges" quick and easy within the established framworks of Robot Services. Some example of how the tools provided make integrating new bridge nodes fast and easy.
+
+`bridge_tools` is internally referred to and imported as `bt`
+
+### Namespacing
+
+To prevent collisions of multiple users on the same redis server, this package provides namespacing. Set the rosparam `redis_ns` to your namespace, and as a result, any of the channels above will be prefixed with your namespace. For example, a user with the namespace "greg" will have all of their redis channels prefixed with "greg/", e.g. "greg/Map", "greg/Odom" . . .
+
+Refer to the `ns` launch arg below to easily set a personal namespace
+
+use `redis_key = bt.namespace_key("key_name")` to namespace your redis keys
+
+
+### Reset
+
+Every new bridge node should support the reset operation. A reset can be requested by setting the key `Bridge_Reset` to `1`. On the ROS side, this proliferates a reset command via the `/reset` topic using a `std_msgs/Empty` message type. All each node has to do is subscribe to `/reset` and if they receive a message, their callback should reset all of the node's respective keys. Resets will delete all keys published by any active bridge nodes.
+
+Set up a basic reset handler in a bridge node with `bt.establish_reset(redis_client_instance, *redis_keys)`. `bt.establish_reset` is pretty flexible for single-key resets. See examples of how it is used throughout the package. 
+
+For some nodes, `bt.establish_reset` might not be robust enough, especially if new keys are dynamically created and removed during runtime.
+
+### Status and "Pulse"
 
 Like Reset, every bridge node needs to support "Pulse" and "Echo". Status_Bridge keeps track of which nodes are "alive" and does this by sending an empty message to `/pulse` every thirty seconds. Other nodes should send an echo in response to a pulse in the form of a `std_msgs/String` containing the name of the node as a response to each pulse to the topic `/pulse_echo`. 
+
+Any node can setup pulse response with `bt.establish_pulse()`
 
 ## Kirby Movement Commands
 

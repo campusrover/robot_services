@@ -10,6 +10,7 @@ if __name__ == "__main__":
 
 
     reset_pub = rospy.Publisher("/reset", Empty, queue_size=10)
+    bt.establish_pulse()
 
     hz = 2
     rate = rospy.Rate(hz)

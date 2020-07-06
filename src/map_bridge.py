@@ -20,7 +20,6 @@ import cv2
 from tf.transformations import euler_from_quaternion
 import numpy as np 
 from nav_msgs.msg import OccupancyGrid
-from std_msgs.msg import Empty
 from tavares_padilha_line_merge import Point, Line_Segment, merge_lines, convert_coords
 import bridge_tools as bt
 from math import pi
@@ -89,6 +88,7 @@ def map_cb(msg):
             ("line_count", len(walls)),
             ("width", round(width * res, 3)),
             ("height", round(height * res, 3)),
+            ("origin", (origin.position.x * res + map_shift[0], origin.position.y * res + map_shift[1])),
             ("data", walls)
         ]))
         # save most recent copy of JSON to a local file
@@ -98,21 +98,6 @@ def map_cb(msg):
         redis.rpush(redis_key, str(package))
         # save what the map looks like to ros to a local file
         cv2.imwrite(bt.get_nearby_file('bw_map_img.jpg'), g_img)
-
-def reset_cb(msg):
-    # empty the list 
-    while int(redis.llen(redis_key)) > 0:
-        redis.lpop(redis_key)
-    # push empty JSON
-    package = json.dumps(OrderedDict([
-        ("id", 0), 
-        ("line_count", 0),
-        ("width", 0),
-        ("height", 0),
-        ("data", [])
-    ]))
-    redis.rpush(redis_key, str(package))
-
     
     
 if __name__ == "__main__":
@@ -123,7 +108,8 @@ if __name__ == "__main__":
 
     queue_size = rospy.get_param("redis_qs", 5)
     map_sub = rospy.Subscriber("/map", OccupancyGrid, map_cb)
-    reset_sub = rospy.Subscriber("/reset", Empty, reset_cb)
+    bt.establish_reset(redis, redis_key, bt.reset_queue, None, "data", "id", "Line_count", "width", "height")  
+    bt.establish_pulse()
     map_shift = [0,0,0]
     map_rot = [0,0,0]
     listener = tf.TransformListener()

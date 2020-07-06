@@ -8,16 +8,12 @@ import redis
 import json
 from nav_msgs.msg import Odometry
 from geometry_msgs.msg import Pose, Twist
-from std_msgs.msg import Empty, String
 from tf.transformations import euler_from_quaternion
 from collections import OrderedDict
 import bridge_tools as bt
 
-def pulse_cb(msg):
-    echo_pub.publish(rospy.get_name())
-
 def odom_cb(msg):
-    global px, py, pz, pose
+    global px, py, pz, pose, moving, prev_moving, id_num
     pose = msg.pose.pose
     m = msg.twist.twist
     o = [round(x, 3) for x in euler_from_quaternion([pose.orientation.x, pose.orientation.y, pose.orientation.z, pose.orientation.w])]
@@ -25,30 +21,30 @@ def odom_cb(msg):
     a = round(m.angular.z, 3)
     lo = [round(x, 3) for x in [pose.position.x, pose.position.y, pose.position.z]]
     package = json.dumps(OrderedDict([
-        ("odom_id", msg.header.seq),
+        ("odom_id", id_num),
+        ("real_odom_id", msg.header.seq),
         ("location", lo),
         ("orientation",  o),
         ("linearvelocity", l),
         ("angularvelocity", a),
         ("time", msg.header.stamp.secs)
     ]))
+    id_num += 1
     changes = [abs(i - j) for i, j in zip([px, py, pz], [lo[0], lo[1], o[2]])]
-    # only post updates if enough has changed since the last send
-    if sum(changes) > send_thresh:
+    moving = l != 0 or a != 0
+    # only post updates if enough has changed since the last send or if the robot is changing from motionless to in motion (or vice versa)
+    if sum(changes) > send_thresh or moving != prev_moving:
         redis.set(redis_key, str(package))
         px, py, pz = lo[0], lo[1], o[2]  # update previous values
     bt.save_json_file("odomdump.json", json.loads(package))
+    prev_moving = moving
 
-def reset_cb(msg):
-    package = json.dumps(OrderedDict([
-        ("odom_id", 0),
-        ("location", [0,0,0]),
-        ("orientation",  [0,0,0]),
-        ("linearvelocity", 0),
-        ("angularvelocity", 0),
-        ("time", 0)
-    ]))
-    redis.set(redis_key, str(package))
+def odom_reset():
+    global moving, prev_moving, px, py, pz, id_num, pose
+    px, py, pz = -1, -1, -1  # default previous values
+    id_num = 0
+    pose = None
+    moving, prev_moving = False, False
 
 if __name__ == '__main__':
     rospy.init_node("odom_bridge")
@@ -57,10 +53,10 @@ if __name__ == '__main__':
     
     send_thresh = float(rospy.get_param("pose_update_thresh", 0))
     px, py, pz = -1, -1, -1  # default previous values
+    id_num = 0
     pose = None
+    moving, prev_moving = False, False
     odom_sub = rospy.Subscriber("/odom", Odometry, odom_cb)
-    reset_sub = rospy.Subscriber("/reset", Empty, reset_cb)
-    pulse_sub = rospy.Subscriber("/pulse", Empty, pulse_cb)
-    echo_pub = rospy.Publisher("/pulse_echo", String, queue_size=3)
-
+    bt.establish_reset(redis, redis_key, bt.reset, odom_reset, "odom_id", "real_odom_id", "location", "orientation", "time", "linearvelocity", "angularvelocity")
+    bt.establish_pulse()
     rospy.spin()

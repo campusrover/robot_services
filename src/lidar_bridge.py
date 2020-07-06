@@ -1,7 +1,6 @@
 #! /usr/bin/python
 import rospy, redis, json
 from sensor_msgs.msg import LaserScan
-from std_msgs.msg import Empty
 from collections import OrderedDict
 import bridge_tools as bt
 
@@ -26,17 +25,6 @@ def scan_cb(msg):
     redis.set(redis_key, str(package))
     rospy.Rate(1).sleep()
 
-def reset_cb(msg):
-    package = json.dumps(OrderedDict([
-        ("max_range", 0),
-        ("min_range", 0),
-        ("slices", 0),
-        ("fov", 0), # field of view
-        ("data", [])
-    ]))
-
-    redis.set(redis_key, str(package))
-
 
 if __name__ == '__main__':
     rospy.init_node("lidar_bridge")
@@ -45,6 +33,7 @@ if __name__ == '__main__':
 
     slices = min(int(rospy.get_param("lidar_slices", 4)), 360)
     scan_sub = rospy.Subscriber("/scan", LaserScan, scan_cb)
-    reset_sub = rospy.Subscriber("/reset", Empty, reset_cb)
+    bt.establish_reset(redis, redis_key, bt.reset, None, "max_range", "min_range", "slices", "fov", "data")
+    bt.establish_pulse()
 
     rospy.spin()

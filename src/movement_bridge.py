@@ -9,9 +9,6 @@ from tavares_padilha_line_merge import Point
 import bridge_tools as bt 
 
 
-def reset_cb(msg):
-    pass  # nothing to reset, but maybe in the future
-
 def odom_cb(msg):
     global pose
     pose = msg.pose.pose
@@ -115,7 +112,8 @@ if __name__ == "__main__":
     odom_sub = rospy.Subscriber("/odom", Odometry, odom_cb)
     scan_sub = rospy.Subscriber("/scan", LaserScan, scan_cb)
     cmd_pub = rospy.Publisher("/cmd_vel", Twist, queue_size=3)
-    reset_sub = rospy.Subscriber("/reset", Empty, reset_cb)
+    bt.establish_reset(redis, redis_key)
+    bt.establish_pulse()
 
     pose = None
     flags = {"moving": False, "forward": False, "stalled": False, "stopped": False}
