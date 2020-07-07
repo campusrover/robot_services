@@ -1,8 +1,5 @@
 # VISION
 
-## Questions
-
-* is Redis the right way to continue to expand the API. I think so but a little research would be useful. Maybe we use it as a command queue for the new commands that I describe below.
 
 ## Long term vision objectives:
 
@@ -10,7 +7,7 @@
     1. including virtual and real robots
     1. Without requiring knowledge of ROS
 1. Build a virtual / remote robotics lab
-    1. Allow users from around the world to work with our robots
+    1. Allow users from around the world to work with their robots
     1. Manage and allocate resources (e.g. robots)
 
 ## Virtual Lab Management Component (part of RSB suite)
