@@ -442,10 +442,10 @@ def check_explored(start):
 def generate_success(goal, cmd):
 	# go forward success message
 	if cmd[1][0] == "go forward":
-		return "[kirby_feedback success_forward] successfully went forward " + str(round(cmd[1][1],1)) + " m to (" + str(round(goal[0][0],1)) + ", " + str(round(goal[0][1],1)) + ")"
+		return "[kirby_feedback success_forward] went forward " + str(round(cmd[1][1],1)) + " m to (" + str(round(goal[0][0],1)) + ", " + str(round(goal[0][1],1)) + ")"
 	# go to success message
 	elif cmd[1][0] == "go to": 
-		return "[kirby_feedback success_go_to] successfully navigated to (" + str(round(goal[0][0],1)) + ", " + str(round(goal[0][1],1)) + ")"
+		return "[kirby_feedback success_go_to] navigated to (" + str(round(goal[0][0],1)) + ", " + str(round(goal[0][1],1)) + ")"
 	# turn success message	
 	elif cmd[1][0] == "turn left" or cmd[1][0] == "turn right":
 		return "[kirby_feedback success_verify_rotation] rotation verified"
@@ -459,10 +459,10 @@ def generate_success(goal, cmd):
 def currently_doing(goal, cmd):
 	# go forward current status
 	if cmd[1][0] == "go forward":
-		return "[kirby_feedback forward] currently looking for a path forward " + str(round(cmd[1][1],1)) + " m to (" + str(round(goal[0][0],1)) + ", " + str(round(goal[0][1],1)) + ")"
+		return "[kirby_feedback forward] going forward " + str(round(cmd[1][1],1)) + " m to (" + str(round(goal[0][0],1)) + ", " + str(round(goal[0][1],1)) + ")"
 	# go to current status	
 	elif cmd[1][0] == "go to":
-		return "[kirby_feedback go_to] currently looking for a path to (" + str(round(goal[0][0],1)) + ", " + str(round(goal[0][1],1)) + ")"
+		return "[kirby_feedback go_to] going to (" + str(round(goal[0][0],1)) + ", " + str(round(goal[0][1],1)) + ")"
 	# turn current status
 	elif cmd[1][0] == "turn left" or cmd[1][0] == "turn right":
 		return "[kirby_feedback verify_rotation] verifying rotation"

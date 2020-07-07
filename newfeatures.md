@@ -52,15 +52,15 @@
 (assume all keys start with <ns>/)
 **(@nate: please check off the ones that are done)**
 
-1. Change Key /Cmd -> /Kirby - because Kirby has a very specific set of behaviors which are at a higher level and stateful. 
+1. [DONE] Change Key /Cmd -> /Kirby - because Kirby has a very specific set of behaviors which are at a higher level and stateful. 
 
 ---
 
-2. Change Key /Feedback to /Kirby/Feedback. Key  A subset of the messages coming out of Kirby are meant for "human" consumtion, report back the state and are needed to understand the result of the commands.
+2. [DONE] Change Key /Feedback to /Kirby/Feedback. Key  A subset of the messages coming out of Kirby are meant for "human" consumtion, report back the state and are needed to understand the result of the commands.
 
 ---
 
-3. Modify /Kirby/Feedback A message to include a "code": "xxx" key, e.g.
+3. [DONE] Modify /Kirby/Feedback A message to include a "code": "xxx" key, e.g.
 
 {"message": "unable to achieve goal", "code": "NO_GOAL"}
 
@@ -68,7 +68,7 @@
 
 ---
 
-4. Add key /Cmd - Does a one of many commands. 
+4. [IN PROGRESS] Add key /Cmd - Does a one of many commands. 
 
 * Only one command at a time.
     * durations are in seconds
@@ -88,7 +88,7 @@ c. {"cmd": "stop"}
 
 ---
 
-5. Key /Status - Report the status of the robot, the environment and RSB itself. Not sure how this is implemented but it does an LPUSH to the key every 30 secconds that looks a  little like this. If all nodes are reporting that they are alive, then status is green and we just report the CPU % (to see if anything is looping infinitely.). If one or more nodes are not working, then the status is YELLOW with a list of nodes that seem broken.
+5. [NEARLY DONE] Key /Status - Report the status of the robot, the environment and RSB itself. Not sure how this is implemented but it does an LPUSH to the key every 30 secconds that looks a  little like this. If all nodes are reporting that they are alive, then status is green and we just report the CPU % (to see if anything is looping infinitely.). If one or more nodes are not working, then the status is YELLOW with a list of nodes that seem broken.
  
     {time: "xxxx", "status": "GREEN", "CPU%": "80"}
 

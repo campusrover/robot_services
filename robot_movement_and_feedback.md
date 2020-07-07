@@ -6,56 +6,59 @@
 #### Basic commands: 
 
 ##### "go forward (X)"
-* move to a space the specified number of meters ahead of where the robot currently is or a default of 1m ahead if none is specified
-	* will fail if that location is blocked by or inside of a known obstacle. 
-		* if it fails, the robot will rotate in place twice while attempting to find a path and then ultimately not move, if it cannot reach the desired location. 
-	* if parts of the map are unexplored such that whether or not the desired location can be reached is unknown, the robot will move to explore unknown areas that could lead to a path to the desired location. 
-		* if a path to the desired location is found, the robot will navigate to the desired location.
-		* if no path is found, the robot will stop as soon as it is sure that there is no path to the desired location. 
-	* although the command is 'go forward', the robot will not necessarily move in a straight line to the desired location
-		* if there is a clear unobstructed path, it is likely it will go directly to the desired location
-		* if a block, for example, is between the robot and the desired location, it will go around the block.
-* inputting a negative value will generate a goal location behind the robot. 
+* Move to a space the specified number of meters ahead of where the robot currently is or a default of 1.0 m ahead if no distance is specified.
+* Go forward commands are completed with move_base waypoints. 
+	* Will fail if that location is blocked by or inside of a known obstacle. 
+		* If it fails, the robot will rotate in place twice while attempting to find a path and then ultimately not move, if it cannot reach the desired location. 
+	* If parts of the map are unexplored such that whether or not the desired location can be reached is unknown, the robot will move to explore unknown areas that could lead to a path to the desired location. 
+		* If a path to the desired location is found, the robot will navigate to the desired location.
+		* If no path is found, the robot will stop as soon as it is sure that there is no path to the desired location. 
+	* Although the command is 'go forward', the robot will not necessarily move in a straight line to the desired location
+		* If there is a clear unobstructed path, it is likely it will go directly to the desired location
+		* If a block, for example, is between the robot and the desired location, it will navigate around the block.
+* Inputting a negative value will generate a goal location behind the robot. 
 
 ##### "go to X Y"
-* move to the desired x y coordinate on the map. 
-	* functionality is identical to 'go forward' except that the goal location is specified by the input x y coordinates 
-	* the x,y inputs are mandatory, not optional.
+* Move to the desired x y coordinate on the map, again using a move_base waypoint.
+	* Functionality is identical to 'go forward' except that the goal location is specified by the input x y coordinates 
+	* The x,y inputs are mandatory, not optional.
+	* They can be positive or negative, and represent ROS coordinates
+	* They should be separeated by a space 
 
 ##### "turn left/right (X)"
-* turn left or right the specified number of degrees or a default of 90 if none is specified
+* Turn left or right the specified number of degrees or a default of 90, if none is specified
 	* X must be positive
-	* rotation is split into an estimation and verification step
-	* most of the turn is completed and the goal position is estimated by directly setting his angular velocity and allowing him to turn for a specific amount of time. 
-	* after this estimation a goal position is generated and sent to the same thing that handles navigation in 'go forward' and 'go to'. This is an attempt to make rotation as precise as possible. 
-	* In the estimation phase, the goal location might not quite have been reached, or might have been overshot due to environmental factors, so this verification is an attempt at correcting any error or variance that may have occurred. 
+	* Rotation is split into an estimation and verification step
+		* Most of the turn is completed and the goal position is estimated by directly setting the robot's angular velocity and allowing it to turn for a specific amount of time. 
+		* This is the only part of the robot's navigation that is done without move_base.
+		* After this estimation, a goal position is generated, based on the starting position and the desired rotation, and sent to move_base. This as a form of error correction, since rotation estimation using only assumed velocity and timing can be imprecise, particularly in the real world where environmental factors may impact movement.  
 
 
 #### Handling Multiple Commands: 
 
 * The robot can take in consecutive commands which will be added to a queue and executed in the order in which they were input.  
-* As another form of error correction, the location of each of the goals is set at the time it's received, with the resulting location of the previous command as the assumed reference point, rather than his real time position when he gets around to the point in the queue where he is completing that command
-	* This is done intentionally, because there can be variance between the ideal goal and the actual performance. 
-	* By using the ideal resulting location of any given goal to frame then next goal, rather than the actual location, which may have been over or under shot by a small factor, we hope to avoid the compounding of these small errors. 
+* As another form of error correction, the location of each of the navigation goals is set at the time it's received, with the resulting location of the previous command as the assumed reference point, rather than the robot's real time position when it gets around to any given command in the queue.
+	* This is done intentionally, because there can be variance between the ideal goal location and the actual result. 
+	* By using the ideal resulting location of any given goal to frame then next goal, we hope to avoid the compounding of small errors, like the slight under or overshooting of a goal location. 
 
 
 #### Pausing, Stopping, and Cancelling:
 
 ##### "stop"
-* if a stop command is received, the robot will immimmediately pause whatever it is doing. 
-* A continue command must be received before the robot will restart taking in and executing commands
+* If a stop command is received, the robot will immediately pause whatever it is doing. 
+* A continue command must be received before the robot can restart taking in and executing commands
 	* This means that it will not move, and any commands sent will not be added to the command queue until it has received a continue command
 
 ##### "continue" 
-* if a continue command is received immediately after a stop command, the robot will simply continue with the goal it had been executing. If there are additional commands queued, it will execute them as normal once it finishes the current command. 
+* If a continue command is received immediately after a stop command, the robot will simply continue with the goal it had been executing. If there are additional commands queued, it will execute them as normal once it finishes the current command. 
 
 ##### "cancel"
-* a cancel command can only be given after a stop command. It cancels the current goal that was being executed before it was puased. 
+* A cancel command can only be given after a stop command. It cancels the current goal that was being executed before it was puased. 
 * If only the current command is queued, then once the continue command is received, the robot will stay where it is, waiting for new commands. 
 * If more commands are queued, then the one that was paused is deleted, and all subsequent commands are re-parsed from the perspective of this new and unexpected location. When the robot receives a continue command it will proceed, from this new location, with all queued commands.
 
 ##### "cancel all"
-* a cancel all command can only be given after a stop command. It cancels all goals in the queue, including the current one. When a continue command is received the robot will stay where it is, waiting for new commands. 
+* A cancel all command can only be given after a stop command. It cancels all goals in the queue, including the current one. When a continue command is received the robot will stay where it is, waiting for new commands. 
 
 * Note: a "continue" command must follow any stop, cancel, or cancel all command, in order to tell the robot to start listening for commands again. 
 
@@ -64,14 +67,14 @@
 
 #### Exploring Too Far: 
 
-* As mentioned above, the robot might wander in an unexpected path if based on current map knowledge, the robot is unsure whether or not it can make it to a goal location it's received. 
-	* sometimes, after exploration, it will realize that it definitely can't make it to the goal location, and will stop where it is, which is not the starting location, and also not the goal.
-		* in these cases, the robot will check to see whether the distance it has traveled in its exploration is beyond some pre-set threshold. 
-		* if it is beyond the threshold, it will wait for user input on how to proceed. 
-			* the options from the user are "go back" and "keep going"
-				* "go back" sends the robot back to the location it was in when he started exploring in an attempt to find a path to his goal. From there he will continue with any queued actions
+* As mentioned above, the robot might wander in an unexpected path if based on current map knowledge, it is unsure whether or not it can make it to a goal location it's received. 
+	* Sometimes, after exploration, it will realize that it definitely can't make it to the goal location, and will stop where it is, which is not the starting location, and also not the goal.
+		* In these cases, the robot will check to see whether the distance it has traveled in its exploration is beyond some pre-set threshold. 
+		* If it is beyond the threshold, it will wait for user input on how to proceed. 
+			* The options from the user are "go back" and "keep going"
+				* "go back" sends the robot back to the location it was in when it started exploring in an attempt to find a path to the goal. From there it will continue with any queued actions
 				* "keep going" tells it to just continue any queued actions from the new locaiton. 
-		* if the new location is within the threshold, it will simply continue with queued actions from this new location. 
+		* If the new location is within the threshold, it will simply continue with queued actions from this new location. 
 
 
 #### Patroling: 
@@ -81,7 +84,7 @@
 	* A patrol command overwrites all existing commands. The robot will immediately stop any goal that it is executing, and cancel any queued goals in order to begin patrolling. 
 * The robot explores in concentric "circles", visiting some fixed number of points along the edge of each circle. 
 	* It begins relatively near the origin, and the circles expand outward. 
-* If no parameters are passed in with a 'patrol' command, it will explore a default of 16 points around each circle. The first circle will have a radius of 1.5m centered at the origin, and the radius of each subsequent circle will be incremented by 1m. 
+* If no parameters are passed in with a 'patrol' command, it will explore a default of 16 points around each circle. The first circle will have a radius of 1.5m centered at the origin, and the radius of each subsequent circle will be incremented by 1.0m. 
 	* If parameters are passed in, all 3 must be specified. 
 		* The first is an integer representing the number of points to explore per circle
 		* The second represents the radius of the initial circle
@@ -99,21 +102,22 @@
 #### FEEDBACK: 
 
 * The robot publishes a log of its actions, every time it does or tries soemthing. 
+* The robot has various feedback codes representing different states that it can be in. Each feedback code is also accompanied by a messge. The codes are listed in a table below, and the messages are described here. 
 
 ##### go forward:
 * After it begins executing a go forward command: 
-	* "currently looking for a path forward <X>m to (x, y)"
+	* "going forward <X>m to (x, y)"
 	* the <X> is the number of meters specified in the command, or 1.0 if no measure was specified
-	* the x,y coordinate is the location that he has generated as the end goal, based on the direction he was facing when he started, and the number of meters he is meant to traverse. 
+	* the x,y coordinate is the location that has been generated as the end goal, based on the direction the robot was facing when it started, and the number of meters it is meant to traverse. 
 * After successful completion of a go forward command: 
-	* "successfully went forward <X>m to (x, y)"
+	* "went forward <X>m to (x, y)"
 
 ##### turn left/right:
 * After it begins the rotation estimation portion of a turn command:
 	* "estimating a <X> degree turn to the left/right"
 	* <X> is the input number of degrees or 90 if none was specified
 * After the estimation portion concludes:
-	* "successfully estimated rotation"
+	* "estimated rotation"
 * At the beginning of the verification portion of a turn command:
 	* "verifying rotation"
 * At the end of the verification portion:
@@ -123,10 +127,10 @@
 
 ##### go to:
 * After it begins execution of a go to command:
-	* "currently looking for a path to (x, y)"
+	* "going to (x, y)"
 	* x and y are the input x,y coordinates in the go to command
 * After completion: 
-	* "successfully navigated to (x, y)"
+	* "navigated to (x, y)"
 
 ##### patrol: 
 * After it receives a patrol command:
@@ -151,8 +155,6 @@
 ##### stop:
 * If the current goal is a rotation estimation
 	* "paused rotation estimation"
-	* "rotation completed so far: <X> degrees"
-		* where <X> is the numebr of degrees completed so far in this turn
 * If the current goal is anything else
 	* "paused current goal"
 
@@ -169,9 +171,9 @@
 * If the previous command was 'cancel all' and there are pending goals:
 	* "cancelled all planned goals"
 	* "waiting for commands"
-	* If the previous command was 'cancel all' and there are no pending goals:
-		* "cancelled goal"
-			* "waiting for commands"
+* If the previous command was 'cancel all' and there are no pending goals:
+	* "cancelled goal"
+	* "waiting for commands"
 ** note **
 	* The robot will not publish feedback after receiving a 'cancel' or 'cancel all' command on its own, since it must also receive a continue command before it can do anything else. As shown above, the status will be published after a continue command is received. 
 
@@ -179,8 +181,6 @@
 
 * If a go back command is received after a stop command:
 	* "returning to previous location"
-	* "previous location (x, y)"
-		* where x, y are the coordinates of the location of the robot at start of the paused goal
 	* Once the robot has made it back to the location:
 		* "returned to previous location"
 

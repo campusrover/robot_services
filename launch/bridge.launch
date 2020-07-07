@@ -31,5 +31,6 @@
     <include file="$(find turtlebot3_slam)/launch/turtlebot3_slam.launch">
         <arg name="slam_methods" value="gmapping"/>
         <arg name="model" value="$(arg model)"/>
+        <arg name="open_rviz" value="true"/>
     </include>
 </launch>

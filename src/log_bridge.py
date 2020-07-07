@@ -1,8 +1,7 @@
 #! /usr/bin/python
 import redis, rospy, json
 from rosgraph_msgs.msg import Log
-from std_msgs.msg import Empty
-from std_msgs.msg import Empty
+from std_msgs.msg import Empty, String
 from collections import OrderedDict
 import bridge_tools as bt 
 
@@ -39,15 +38,18 @@ def log_cb (msg):
             redis.rpush(redis_key, str(package))
 
 def reset_cb(msg):
+    for k in [redis_key] + list(special_log_keys):
+        redis.delete(k)
     # empty the list 
+    """
     while int(redis.llen(redis_key)) > 0:
         redis.lpop(redis_key)
     for key in special_log_keys:  # empty out all generated keys
         while int(redis.llen(key)) > 0:
             redis.lpop(key)
+    """
     # push empty JSON
     rospy.loginfo("Reset applied")
-
 
 
 if __name__ == "__main__":
@@ -56,11 +58,11 @@ if __name__ == "__main__":
     redis = bt.redis_client()
     redis_key = bt.namespace_key("Log")
     redis_key2 = bt.namespace_key("Log_Settings")
-
-    roslog_sub = rospy.Subscriber('/rosout', Log, log_cb)
-    reset_sub = rospy.Subscriber("/reset", Empty, reset_cb)
     whitelist = bt.load_json_file("log_whitelist.json", dict())
     special_log_keys = set(bt.load_json_file("special_log_keys.json", []))
+    roslog_sub = rospy.Subscriber('/rosout', Log, log_cb)
+    reset_sub = rospy.Subscriber("/reset", Empty, reset_cb) # this node does not use bt.establish_reset() because it handles too many keys
+    bt.establish_pulse()
     rate = rospy.Rate(1)
     while not rospy.is_shutdown():
         keys = redis.scan_iter(redis_key2 + "*")  # get all the keys under the ns/Log_Settings key domain
