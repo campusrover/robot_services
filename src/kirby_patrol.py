@@ -8,6 +8,7 @@ from smach import State,StateMachine
 from smach_ros import SimpleActionState
 from move_base_msgs.msg import MoveBaseAction, MoveBaseGoal
 from geometry_msgs.msg import Twist
+from nav_msgs.msg import Odometry
 
 # boolean representing whether or not all possible 
 # waypoints have been explored
@@ -34,12 +35,24 @@ INITIAL_RADIUS = 1.5
 # each concentric circle explored
 INC_RADIUS = 1.0
 
+anchor = [(0.0,0.0,0.0),(0.0,0.0,0.0,0.0)]
+
 # each move base command should have this orientation pose
 orientation = (0.0, 0.0, 0.0, 1.0)
 
 # a regex to grab the signed double or int corresponding to the 
 # amount of distance or roatation a given command should be executed
 grab_amount = re.compile('-?\d*\.?\d+')
+
+def odom_callback(msg):
+	global pose
+	pose = msg.pose.pose
+
+odom_sub = rospy.Subscriber('odom', Odometry, odom_callback)
+
+def reset_anchor():
+	global anchor
+	anchor = [(0.0,0.0,0.0),(0.0,0.0,0.0,0.0)]
 
 def input_callback(msg):
 	global POLYGON, INITIAL_RADIUS, INC_RADIUS, patroling, failure, radius, preempted
@@ -61,6 +74,7 @@ def input_callback(msg):
 	elif len(msg.data) == 11 and msg.data[:11] == 'stop patrol':
 		patroling = False
 		preempted = True
+		reset_anchor()
 		patrol.request_preempt()
 	
 # subscriber to consoleInput
@@ -72,10 +86,13 @@ input_sub = rospy.Subscriber('redis_cmd_listener', String, input_callback)
 around a circle of input radius for the robot to explore
 and returns the list of move_base waypoints'''
 def create_waypoints(radius):
+	global anchor, orientation
+	if anchor == [(0.0,0.0,0.0),(0.0,0.0,0.0,0.0)]:
+		anchor = [(pose.position.x, pose.position.y, pose.position.z), orientation]
 	increment = (2*math.pi)/POLYGON
 	waypoints = []
 	for i in range(0, POLYGON):
-		waypoints.append([str(i), (math.cos(i*increment)*radius,math.sin(i*increment)*radius), orientation])
+		waypoints.append([str(i), ((math.cos(i*increment)*radius)+anchor[0][0],(math.sin(i*increment)*radius)+anchor[0][1]), orientation])
 	return waypoints
 
 
@@ -196,6 +213,7 @@ if __name__=='__main__':
 					else:
 						rospy.loginfo("[kirby_feedback finish_patrol] no more explorable waypoints")
 					set_failure(True)
+					reset_anchor()
 					termination.publish("terminating")
 					#rospy.loginfo("[kirby_feedback stop_patrol] terminating")
 				else: 
