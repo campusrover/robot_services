@@ -52,6 +52,8 @@
 (assume all keys start with <ns>/)
 **(@nate: please check off the ones that are done)**
 
+1. Add "goto x y z" to Cmd which will invoke move_base. x y are the coordinates, and z is the orientation. Uses the map and of course will avoid obstacles. Status can reflect success or failure
+
 1. [DONE] Change Key /Cmd -> /Kirby - because Kirby has a very specific set of behaviors which are at a higher level and stateful. 
 
 ---
