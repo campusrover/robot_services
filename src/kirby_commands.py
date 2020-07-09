@@ -199,8 +199,10 @@ def parse(message):
 	# then last_in is the current position of the robot
 	else:
 		reset_last_in()
+	if patrol and not message == 'stop patrol':
+		rospy.loginfo("[kirby_feedback invalid] invalid command, robot is patrolling")
 	# if the message starts with 'go to'
-	if message[:5] == 'go to' and got_coords:
+	elif message[:5] == 'go to' and got_coords:
 		# generate a new waypoint at the given x y coord
 		generate_coord(x, y)
 		# add the message to the deque of commands
