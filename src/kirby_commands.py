@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#! /usr/bin/env python
 
 import redis
 import rospy
@@ -16,103 +16,207 @@ from std_msgs.msg import String
 from geometry_msgs.msg import Twist
 from robot_services.msg import RotateAction, RotateGoal, RotateResult
 
-# threshold to determine if the robot has moved far enough from an expected
-# path to warrent user intevention
+numbers = re.compile('-?\d*\.?\d+')
+
+# if the robot moves from a starting position in an 
+# attempt to reach a goal, but ultimately cannot reach
+# that goal, it will request user input if it has moved
+# beyond EXPLORE_TOLERANCE of its original location
 EXPLORE_TOLERANCE = 0.5
 
-# a Deque of waypoints for the robot to navigate to
-waypoints = deque()
-
-# a Deque to store the commands corresponding to the current 
-# waypoints in the Deque of waypoints
-commands = deque()
-
-# a point corresponding to the last waypoint in the deque or 
-# the current position of the robot if there are no 
-# waypoints in the deque
-last_in = None
-
-# a boolean representing whether or not the robot has
-# received a command to stop, and not yet been told 
-# to continue
+# booleans that help to keep track of the state of the robot
+patrolling = False
 stopped = False
-
-# a boolean representing whether or not the robot should
-# cancel its current nav_goal after it has been stopped
-cancel = False
-
-# a boolean representing whether or not the robot sould
-# cancel all planned nav_goals after it has stopped
-cancel_all = False
-
-# a boolean represening whether or not the robot has received
-# a command to continue after being stopped 
-restart = False
-
-# whether or not the robot has received a command to go back to 
-# its previous location after it has moved
 go_back = False
-
-# whether or not the robot has received a command to keep going
-# after it has explored and been unable to find a path to
-# its goal location
+cancel = False
+cancel_all = False
+restart = False
 keep_going = False
 
-# whether or not the robot has been stopped in the middle of a 
-# turn executed with cmd vel
-turn_stopped = False
+# commands the robot will execute
+commands = []
 
-# whether or not the robot is currently patrolling
-patrol = False
+# resets all control booleans
+def reset():
+	global patrolling, stopped, go_back, cancel, cancel_all, restart, keep_going
+	patrolling = False
+	stopped = False
+	go_back = False
+	cancel = False
+	cancel_all = False
+	restart = False
+	keep_going = False
 
-# the number of degrees completed before this rotation was preempted
-degs_completed = 0.0
-
-# the number of radians completed in this turn or 0 if this is not a turn
-rot_completed = 0.0
-
-# a regex to grab the signed double or int corresponding to the 
-# amount of distance or roatation a given command should be executed
-grab_amount = re.compile('-?\d*\.?\d+')
- 
-# callback function for the odom subscriber
-# stores the current location of the robot
+# callback for odom
 def odom_callback(msg):
-	global pose 
+	global pose
 	pose = msg.pose.pose
-	
-# callback function for consoleInput passes the 
-# input string to the parse function
-def input_callback(msg):
-	parse(msg.data)
-	
+
 # subscriber to odom
 odom_sub = rospy.Subscriber('odom', Odometry, odom_callback)
 
-# subscriber to whatever is taking in the commands
+# callback for the input (usually redis)
+def input_callback(msg):
+	parse(msg.data)
+
+# subscriber to node that listens to redis
 input_sub = rospy.Subscriber('redis_cmd_listener', String, input_callback)
 #input_sub = rospy.Subscriber('console_input', String, input_callback)
 
+# converts an input string into some executable for the robot or 
+# updates a boolean affecting the state of the robot
+def parse(msg):
+	global patrolling, keep_going, go_back, cancel, cancel_all, restart, commands, stopped
+	# gets all numbers from input string
+	metrics = numbers.findall(msg)
+	# if the robot is paused it will not take in any new goals until it is unpaused
+	if stopped and msg != 'continue' and msg != 'cancel' and msg != 'cancel all' and msg != 'go back' and msg != 'queue':
+		rospy.loginfo("[kirby_feedback invalid] invalid command, robot is paused")
+	# if the robot is patrolling it will not take in any new goals until it has stopped patrolling
+	elif msg != 'stop patrol' and msg != 'start_patrol' and patrolling:
+		rospy.loginfo("[kirby_feedback invalid] invalid command, robot is patrolling")
+	# adds go to commands to the execution queue
+	elif len(msg) >= 5 and msg[:5] == 'go to' and len(metrics) == 2:
+		commands.append(Navigate(msg, "go to", float(metrics[0]), float(metrics[1])))
+	# adds go forward commands to the execution queue
+	elif len(msg) >= 10 and msg[:10] == 'go forward':
+		if len(metrics) == 0:
+			commands.append(Navigate(msg, "go forward", 1.0))
+		elif len(metrics) == 1:
+			commands.append(Navigate(msg, "go forward", float(metrics[0])))
+		else: 
+			rospy.loginfo("[kirby_feedback invalid] go forward commands only take one argument")
+	# adds turn left commands to the execution queue
+	elif len(msg) >= 9 and msg[:9] == 'turn left':
+		if len(metrics) == 0:
+			commands.append(Rotate(msg, "turn left", 90.0))
+		elif len(metrics) == 1 and metrics[0] < 0:
+			rospy.loginfo("[kirby_feedback invalid] angle must be positive")
+		elif len(metrics) == 1:
+			commands.append(Rotate(msg, "turn left", float(metrics[0])))
+		else: 
+			rospy.loginfo("[kirby_feedback invalid] rotation commands only take one argument")
+	# adds turn right commands to the execution queue
+	elif len(msg) >= 10 and msg[:10] == 'turn right':
+		if len(metrics) == 0:
+			commands.append(Rotate(msg, "turn right", -90.0))
+		elif len(metrics) == 1 and metrics[0] < 0:
+			rospy.loginfo("[kirby_feedback invalid] angle must be positive")
+		elif len(metrics) == 1:
+			commands.append(Rotate(msg, "turn right", -float(metrics[0])))
+		else: 
+			rospy.loginfo("[kirby_feedback invalid] rotation commands only take one argument")
+	# adds patrol commands to the execution queue 
+	elif len(msg) >= 6 and msg[:6] == 'patrol':
+		if len(metrics) == 0:
+			commands.append(Patrol(msg, 8, 1.0, 1.0))
+		elif len(metrics) == 3:
+			commands.append(Patrol(msg, int(metrics[0]), float(metrics[1]), float(metrics[2])))
+		else: 
+			rospy.loginfo("[kirby_feedback invalid] patrol must take 3 arguments or none at all")
+	# a special key that signals that the robot has begun patrolling. This key is published
+	# by this script when a patrol command begins to be executed. The kirby_patrol script 
+	# listens for this key, and takes over controlling the robot's actions. 
+	elif len(msg) >= 12 and msg[:12] == 'start_patrol':
+		patrolling = True
+	# the robot is no longer patrolling	
+	elif msg == 'stop patrol':
+		if patrolling:
+			patrolling = False
+		else:
+			rospy.loginfo("[kirby_feedback invalid] robot is not patrolling")
+	# the robot should cancel the first goal in its queue
+	elif msg == 'cancel':
+		if stopped: 
+			cancel = True
+		else:
+			rospy.loginfo("[kirby_feedback invalid] robot must be stopped before a goal can be cancelled")
+	# the robot should cancel all goals in its queue
+	elif msg == 'cancel all':
+		if stopped:
+			cancel_all = True
+		else:
+			rospy.loginfo("[kirby_feedback invalid] robot must be stopped before goals can be cancelled")
+	# the robot should unpause 
+	elif msg == 'continue':
+		if stopped:
+			restart = True
+		else:
+			rospy.loginfo("[kirby_feedback invalid] robot must be stopped before it can continue")
+	# the robot should cancel all goals and return to previous location
+	# if the robot has asked for input, it will go back to the previous location but cancel pending goals
+	elif msg == 'go back':
+		go_back = True
+	# the robot should continue with planned goals from where it is. This is a special input
+	# that should only be given in response to robot request for user input
+	elif msg == 'keep going':
+		keep_going = True
+	# the robot should pause its current action
+	elif msg == 'stop':
+		reset()
+		# handles pausing of rotation action
+		if rotation_client.get_state() == 1:
+			rotation_client.cancel_goal()
+			stopped = True
+			rospy.loginfo("[kirby_feedback paused] paused rotation estimation")
+			rotation_completed = int(round(math.degrees(float(rot_completed))))
+			current = commands[0]
+			to_do = current.degrees - rotation_completed
+			current.update_goal(to_do)
+		# handles pausing of move_base action	
+		elif move_base_client.get_state() == 1:
+			move_base_client.cancel_goal()
+			stopped = True
+			rospy.loginfo("[kirby_feedback paused] paused current goal") 	
+		else: 
+			rospy.loginfo("[kirby_feedback ready] no pending actions") 
+	# robot will publish feedback containing its current list of pending goals
+	elif msg == 'queue':
+		log_queue()
+		#rospy.loginfo("[kirby_feedback debug] i heard the queue")
+	# if the message is anything else it is invalid
+	elif msg != '':
+		rospy.loginfo("[kirby_feedback invalid] invalid command")
+				
 # callback for patrol termination requests
 def termination_callback(msg):
-	reset_all_control_booleans()
-	rospy.loginfo("[kirby_feedback ready] waiting for commands")
+	reset()
+
+# callback for rotation action client
+def rotate_feedback(feedback):
+	global rot_completed
+	rot_completed = feedback.rotation_completed
 
 # subscriber to patrol termination requests
 termination_sub = rospy.Subscriber('termination_request', String, termination_callback)
 
+# generates string representation of current pending goals
+def log_queue():
+	global commands
+	if len(commands) == 0:
+		rospy.loginfo("[kirby_feedback queue] nothing pending")
+		#rospy.loginfo("[kirby_feedback debug] queue")
+	else:
+		q = "pending actions: "
+		for command in commands[:len(commands) - 1]:
+			#rospy.loginfo("[kirby_feedback queue] " + str(q))
+			q += str(command.original) + ", "
+			#rospy.loginfo("[kirby_feedback queue] " + str(q))
+		q += str(commands[-1].original)
+		rospy.loginfo("[kirby_feedback queue] " + q)
 
-# publisher to cmd_vel, used to complete rotations
-cmd_vel_pub = rospy.Publisher('cmd_vel', Twist, queue_size=1)
+# returns waypoint representation of robot's current position
+def current_robot_location():
+	return [(pose.position.x, pose.position.y, pose.position.z),(pose.orientation.x, pose.orientation.y, pose.orientation.z, pose.orientation.w)]
 
-# resets the global last_in variable to be equal
-# to the current position of the robot
-def reset_last_in():
-	global last_in
-	last_in = get_current()
+# returns the yaw, in radians, of the input pose
+def get_yaw(position):
+	orientation = position[1]
+	euler = tf.transformations.euler_from_quaternion(orientation) 
+	return euler[2]
 
-# creates a new MoveBaseGoal according to the input waypoint
-def goal_pose(pose):
+# creates a move_base goal out of the input waypoint
+def create_goal(pose):
 	goal_pose = MoveBaseGoal()
 	goal_pose.target_pose.header.frame_id = 'map'
 	goal_pose.target_pose.pose.position.x = pose[0][0]
@@ -124,620 +228,234 @@ def goal_pose(pose):
 	goal_pose.target_pose.pose.orientation.w = pose[1][3]
 	return goal_pose
 
-# gets the current pose of the robot in the form of a waypoint
-def get_current():
-	global pose
-	point = [(pose.position.x,pose.position.y,pose.position.z),(pose.orientation.x,pose.orientation.y,pose.orientation.z,pose.orientation.w)]
-	return point
-
-# returns the yaw in radians, of the input pose
-def get_yaw(pose):
-	orientation = (pose[1][0], pose[1][1], pose[1][2], pose[1][3])
-	euler = tf.transformations.euler_from_quaternion(orientation) 
-	return euler[2]
-
-# takes in an angle of rotation and a pose, returns a quaternion
-# corresponding to the new orientation when rotated input degrees
-# with respect to the input pose
-def rotate(angle, pose):
-	orientation = (pose[1][0], pose[1][1], pose[1][2], pose[1][3])
-	euler = tf.transformations.euler_from_quaternion(orientation) 
-	new_yaw = euler[2] + math.radians(angle)
-	return tf.transformations.quaternion_from_euler(euler[0], euler[1], new_yaw)
-
-# adds a waypoint to the front of the deque
-def readd_the_goal(goal):
-	waypoints.appendleft(goal)
-
-# adds a command to the front of the deque
-def readd_the_command(command):
-	commands.appendleft(command)
-
-# removes all waypoints from the deque
-def clear_queues(): 
-	global waypoints, commands
-	waypoints.clear()
-	commands.clear()
-
-def clear_waypoints():
-	global waypoints
-	waypoints.clear()
-
-# generates a waypoint based on the input command 
-# and the current state of the robot adds it to the deque
-def parse(message):
-	# global variables that can be updated in parse
-	global last_in, stopped, cancel, cancel_all, restart, go_back, keep_going, turn_stopped, degs_completed, rot_completed, patrol
-
-	# the amount(s) associated with the input command
-	# could be meters or degrees
-	amount = grab_amount.findall(message)
-
-	# boolean representing whether or not the default value should be used
-	default = False
-	got_coords = False
-
-	# if there was an input value
-	if len(amount) == 1: 
-		# store it as a float
-		amount = float(amount[0])
-	# if there are two input values, assume a coordinate, store x, y
-	elif len(amount) == 2:
-		x = float(amount[0])
-		y = float(amount[1])
-		got_coords = True
-	# otherwise use the default value
-	else: 
-		default = True
-
-	# if there are items in the deque of waypoints
-	# the last_in value should be the rightmost 
-	# waypoint in the deque
-	if len(waypoints) != 0:
-		last_in = waypoints[-1]
-	# if there are no waypoints in the deque
-	# then last_in is the current position of the robot
-	else:
-		reset_last_in()
-	if patrol and not message == 'stop patrol':
-		rospy.loginfo("[kirby_feedback invalid] invalid command, robot is patrolling")
-	# if the message starts with 'go to'
-	elif message[:5] == 'go to' and got_coords:
-		# generate a new waypoint at the given x y coord
-		generate_coord(x, y)
-		# add the message to the deque of commands
-		commands.append((message,("go to",x,y)))
-	# if the message starts with 'go forward' 
-	elif message[:10] == 'go forward':
-		# generate a new waypoint X meters ahead of the robot, 
-		# and add the corresponding message to the deque of cmds
-		if default:
-			# default value for forward motion is 1m 
-			generate_forward(1.0)
-			commands.append((message,("go forward", 1.0)))
-		else: 
-			generate_forward(amount)
-			commands.append((message,("go forward",amount)))
-		
-	# if the message starts with 'turn left'
-	elif message[:9] == 'turn left':
-		# generate a new waypoint with the robot rotated X degrees, 
-		# and add the corresponding message to the deque of cmds
-		if default: 
-			# the default value for rotation is 90 degrees
-			generate_rotation(90)
-			commands.append((message,("turn left",90)))
-		elif amount < 0:
-			rospy.loginfo("[kirby_feedback invalid] angle must be positive")
-		else: 
-			generate_rotation(amount)
-			commands.append((message,("turn left",amount)))
-		
-	# if the message starts with 'turn right'
-	elif message[:10] == 'turn right':
-		# generate a new waypoint with the robot rotated -X degrees, 
-		# and add the corresponding message to the deque of cmds
-		if default: 
-			# the default value for rotation is 90 degrees
-			generate_rotation(-90)
-			commands.append((message,("turn right",90)))
-		elif amount < 0:
-			rospy.loginfo("[kirby_feedback invalid] angle must be positive")
-		else: 
-			generate_rotation(-amount)
-			commands.append((message,("turn right",amount)))
-		
-	# if the message is 'stop'
-	elif message == 'stop':
-		# if the robot is currently rotating with cmd_vel
-		if rotation_client.get_state() == 1:
-			# stop rotation
-			rotation_client.cancel_goal()
-			# publish feedback stating that rotation has been stopped
-			rospy.loginfo("[kirby_feedback paused] paused rotation estimation")
-			# update boolean that states a turn has been stopped in the middle of rotation
-			turn_stopped = True
-			# convert the radians that have been completed so far to degrees
-			degs_completed = int(round(math.degrees(rot_completed)))
-			# publish an update on how much of the turn was finished before stopping
-			#rospy.loginfo("[kirby_feedback status] rotation completed: " + str(degs_completed) + " degrees")
-		# if the robot is not currently rotating
-		else: 	
-			# cancel the move_base goal
-			client.cancel_goal()
-			# publish a message stating that goals have been paused
-			rospy.loginfo("[kirby_feedback paused] paused current goal")
-		# update the stopped status to note that the robot has stopped
-		stopped = True
-	# if a message corresponding to a control boolean is received, 
-	# update the appropriate control boolean
-	elif message == 'cancel': 
-		cancel = True
-	elif message == 'cancel all':
-		cancel_all = True
-	elif message == 'continue':
-		restart = True
-	elif message == 'go back': 
-		go_back = True
-	elif message == 'keep going':
-		keep_going = True
-	# if the message is patrol, cancel any goals that are currently being executed
-	# clear all queued commands/goals, patrolling will begin. 
-	elif message[:6] == 'patrol':
-		if rotation_client.get_state() == 1:
-			rotation_client.cancel_goal()
-		elif client.get_state() == 1:
-			client.cancel_goal()
-		clear_queues()
-		patrol = True
-	elif message == 'stop patrol':
-		patrol = False
-	elif message != '': 
-		rospy.loginfo("[kirby_feedback invalid] invalid command")
-
-# generates a waypoint the input amount in front of the robot and adds this waypoint to the deque
-def generate_forward(amount):
-	global waypoints
-	# get the current yaw
-	yaw = get_yaw(last_in)
-	# use yaw to geneate a point amount in front of the robot 
-	point = [(last_in[0][0] + amount*math.cos(yaw), last_in[0][1] + amount*math.sin(yaw), 0.0),(last_in[1][0], last_in[1][1], last_in[1][2], last_in[1][3])]
-	# add this new waypoint to the back of the deque
-	waypoints.append(point)
-
-# generates a waypoint corresponding to the input x,y coord, and adds this waypoint to the back of the deque
-def generate_coord(x, y):
-	global waypoints
-	point = [(x, y, last_in[0][2]),(last_in[1][0], last_in[1][1], last_in[1][2], last_in[1][3])]
-	waypoints.append(point)
-	
-# generates a waypoint the input number of degrees from the current position of the robot and 
-# adds this waypoint to the deque
-def generate_rotation(amount):
-	global waypoints
-	# generate quaternion
-	quat = rotate(amount, last_in)
-	# use it to generate new point with updated orientation
-	# a nonsense value will be added for the z location to signify that this is a rotation command
-	# the sign of the nonsense value specifies whether it is a left or right turn
-	if amount < 0:
-		point = [(last_in[0][0], last_in[0][1], -10),(quat[0], quat[1], quat[2], quat[3])]
-	else: 
-		point = [(last_in[0][0], last_in[0][1], 10),(quat[0], quat[1], quat[2], quat[3])]
-	# add the waypoint to the deque
-	waypoints.append(point)
-
-# re-adds a new goal that represents the rest of the rotation of paused goal
-def readd_partial_rotation():
-	# grab the waypoint corresponding to the rotation we had been doing
-	goal = waypoints.popleft()
-	# grab the command corresponding to what we had been executing
-	command = commands.popleft()
-	# the amount left to rotate is the original amount minus the degrees completed
-	amt = abs(float(command[1][1])) - degs_completed
-	# the new command with the updated amount
-	cmd = ((command[1][0] + " " + str(amt)),(command[1][0], amt))
-	# current position of the robot
-	curr = get_current()
-	# sign the amount based on the direction of the turn
-	if command[1][0] == "turn right":
-		quat = rotate(-amt, curr)
-	else:
-		quat = rotate(amt, curr)
-	# generate the point with special value to signify direction of rotation
-	if command[1][0] == "turn left":
-		point = [(curr[0][0], curr[0][1], 10),(quat[0],quat[1],quat[2],quat[3])]
-	else:
-		point = [(curr[0][0], curr[0][1], -10),(quat[0],quat[1],quat[2],quat[3])]
-	# add the waypoint to the front of the deque	
-	waypoints.appendleft(point)
-	# add the command to the front of the deque
-	commands.appendleft(cmd)
-
-# sets the z component of the position of this pose or point to the current z position of the robot
-# this is used primarily to reset the nonsense value used to signify a rotation command
-def reset_z(goal_point):
-	global pose
-	# creates a new point with updated z position. 
-	# new z is the current z, becuase z should never change
-	point = [(goal_point[0][0], goal_point[0][1], pose.position.z),(goal_point[1][0], goal_point[1][1], goal_point[1][2], goal_point[1][3])]
-	return point
-
-# calculates the number of radians that must be rotated to complete this turn
-def est_rads(gp, extra_rot):
-	global pose
-	# convert current pose to a point
-	current_pose = get_current()
-	# get the current yaw of the robot
-	current_yaw = get_yaw(current_pose)
-	# the goal yaw based on the input goal pose
-	goal_yaw = get_yaw(gp)
-	
-	# if the nonsense value was negative, this is a right turn
-	if gp[0][2] == -10:
-		left_turn = False
-	# if it was positive, this is a left turn
-	else:
-		left_turn = True
-
-	# if we are turning right, calculate the number of radians we must 
-	# rotate to reach the goal point
-	if not left_turn:
-		if current_yaw < 0 and goal_yaw > 0:
-			rads = (math.pi + current_yaw) + (math.pi - goal_yaw)
-		elif current_yaw > 0 and goal_yaw < 0:
-			rads = current_yaw + abs(goal_yaw)
-		elif current_yaw > 0 and goal_yaw > 0:
-			if current_yaw >= goal_yaw:
-				rads = current_yaw - goal_yaw
-			else:
-				rads = 2*math.pi - goal_yaw - current_yaw
-		elif current_yaw < 0 and goal_yaw < 0:
-			if current_yaw >= goal_yaw:
-				rads = current_yaw - goal_yaw
-			else: 
-				rads = 2*math.pi - current_yaw - goal_yaw
-	# if we are turning left, do the same
-	else: 
-		if current_yaw < 0 and goal_yaw > 0: 
-			rads = abs(current_yaw) + goal_yaw
-		elif current_yaw > 0 and goal_yaw < 0:
-			rads = (math.pi - current_yaw) + (math.pi + goal_yaw)
-		elif current_yaw > 0 and goal_yaw > 0:
-			if current_yaw >= goal_yaw:
-				rads = 2*math.pi - (current_yaw - goal_yaw)
-			else:
-				rads = goal_yaw - current_yaw
-		elif current_yaw < 0 and goal_yaw < 0:
-			if current_yaw < goal_yaw:
-				rads = goal_yaw - current_yaw
-			else: 
-				rads = 2*math.pi - (goal_yaw - current_yaw)
-	
-	# add any additional full turns
-	if extra_rot < 0:
-		rads = 2*math.pi * abs(extra_rot)
-	else:
-		rads += extra_rot * 2*math.pi
-	
-	# if it's a right turn, rads are negative
-	if not left_turn:
-		rads = -(rads)
-	return rads
-	
-# adds the input waypoint to the front of the deque and 
-# adds a corresponding command 
-# the input waypoint is usually the location of the robot before
-# it started whatever goal it was most recently pursuing
-def undo(pt):
-	waypoints.appendleft(pt)
-	commands.appendleft(("go back",("go back", pt[0][0], pt[0][1])))	
-
-# checks whether the robot has moved beyond a certain threshold by 
-# comparing the input waypoint, representing the starting location
-# to the robot's current location
-def check_explored(start):
-	curr = get_current()
+# checks whether the robot has moved beyond EXPLORE_TOLERANCE
+# used whenever a move_base goal fails, to check if the robot is in an 
+# unexpected location and alert the user and ask for input if so
+def check_movement(start):
+	curr = current_robot_location()
 	return (abs(curr[0][0] - start[0][0]) >= EXPLORE_TOLERANCE) or (abs(curr[0][1] - start[0][1]) >= EXPLORE_TOLERANCE)
 
-# generates a message signifying successful completion of the given goal
-def generate_success(goal, cmd):
+# generates a feedback message for success of a goal
+def success_message(command):
 	# go forward success message
-	if cmd[1][0] == "go forward":
-		return "[kirby_feedback success_forward] went forward " + str(round(cmd[1][1],1)) + " m to (" + str(round(goal[0][0],1)) + ", " + str(round(goal[0][1],1)) + ")"
+	if command.command == "go forward":
+		return "[kirby_feedback success_forward] went forward " + str(round(command.x,1)) + " m to (" + str(round(command.waypoint[0][0],1)) + ", " + str(round(command.waypoint[0][1],1)) + ")"
 	# go to success message
-	elif cmd[1][0] == "go to": 
-		return "[kirby_feedback success_go_to] navigated to (" + str(round(goal[0][0],1)) + ", " + str(round(goal[0][1],1)) + ")"
+	elif command.command == "go to": 
+		return "[kirby_feedback success_go_to] navigated to (" + str(round(command.waypoint[0][0],1)) + ", " + str(round(command.waypoint[0][1],1)) + ")"
 	# turn success message	
-	elif cmd[1][0] == "turn left" or cmd[1][0] == "turn right":
+	elif command.command == "turn left" or command.command == "turn right":
 		return "[kirby_feedback success_verify_rotation] rotation verified"
 	# go back success message	
-	elif cmd[1][0] == "go back": 
+	elif command.command == "go back": 
 		return "[kirby_feedback success_go_back] returned to previous location"
 	else: 
 		return "" 
 
-# generates current status message based on the input goal and command
-def currently_doing(goal, cmd):
+# generates a feedback message for a goal in progress
+def in_progress_message(command):
 	# go forward current status
-	if cmd[1][0] == "go forward":
-		return "[kirby_feedback forward] going forward " + str(round(cmd[1][1],1)) + " m to (" + str(round(goal[0][0],1)) + ", " + str(round(goal[0][1],1)) + ")"
+	if command.command == "go forward":
+		return "[kirby_feedback forward] going forward " + str(round(command.x,1)) + " m to (" + str(round(command.waypoint[0][0],1)) + ", " + str(round(command.waypoint[0][1],1)) + ")"
 	# go to current status	
-	elif cmd[1][0] == "go to":
-		return "[kirby_feedback go_to] going to (" + str(round(goal[0][0],1)) + ", " + str(round(goal[0][1],1)) + ")"
+	elif command.command == "go to":
+		return "[kirby_feedback go_to] going to (" + str(round(command.waypoint[0][0],1)) + ", " + str(round(command.waypoint[0][1],1)) + ")"
 	# turn current status
-	elif cmd[1][0] == "turn left" or cmd[1][0] == "turn right":
+	elif command.command == "turn left" or command.command == "turn right":
 		return "[kirby_feedback verify_rotation] verifying rotation"
 	# go back current status
-	elif cmd[1][0] == "go back":
-		return "[kirby_feedback go_back] previous location (" + str(round(goal[0][0],1)) + ", " + str(round(goal[0][1],1)) + ")"
+	elif command.command == "go back":
+		return "[kirby_feedback go_back] returning to previous location (" + str(round(command.waypoint[0][0],1)) + ", " + str(round(command.waypoint[0][1],1)) + ")"
 	else: 
 		return ""
-	
-# resets all control booleans to false
-def reset_all_control_booleans():
-	global degs_completed, rot_completed, cancel, cancel_all, restart, stopped, go_back, keep_going, turn_stopped, patrol
-	cancel = False
-	cancel_all = False
-	restart = False
-	stopped = False
-	go_back = False
-	keep_going = False
-	turn_stopped = False
-	degs_completed = 0.0
-	rot_completed = 0.0
-	patrol = False
 
-# stores the feedback from the rotation action
-def rotate_feedback(feedback):
-	global rot_completed
-	rot_completed = feedback.rotation_completed
+
+# object representing a command given to the robot
+#   - command: the type of command e.g. "turn left", "go forward", "patrol"
+#   - original: the raw string input command
+#   - waypoint: the goal location for the robot after this command has been completed 
+class Command(object):
+
+	def __init__(self, command, original):
+		self.command = command
+		self.original = original
+		self.waypoint = self.generate_waypoint()
+
+	def generate_waypoint(self):
+		pass
+
+
+# object representing a command that moves the robot to a new location
+#   - x: the x coordinate of the goal location
+#   - y: the y coordinate of the goal location
+class Navigate(Command):
+
+	def __init__(self, msg, command, x, y=None):
+		self.x = x
+		self.y = y 
+		super(Navigate, self).__init__(command, msg)
+
+	# generate the goal location based on current location, pending actions, and input command
+	def generate_waypoint(self):
+		global commands
+		start = current_robot_location()
+		# if there are pending actions, assume that the starting location for this action
+		# will be the resulting location of the final pending action.  
+		if len(commands) != 0: 
+			start = commands[-1].waypoint
+		# if no y coordinate is given, this is a go forward command, and the x and y coordinates will be calculated
+		if self.y == None: 
+			yaw = get_yaw(start)
+			goal = [(start[0][0] + self.x*math.cos(yaw), start[0][1] + self.x*math.sin(yaw), start[0][2]), start[1]]
+		# otherwise the input x and y coordinates can be used directly 
+		else:
+			goal = [(self.x, self.y, start[0][2]), start[1]]
+		return goal
+
+
+# object representing a command that rotates the robot in place
+#   - degrees: the number of degrees the robot should turn. 
+class Rotate(Command):
+	
+	def __init__(self, msg, command, degrees):
+		self.degrees = degrees
+		super(Rotate, self).__init__(command, msg)
+
+	# a waypoint is generated for error correction after the majority of the rotation
+	# is completed with the rotation action
+	def generate_waypoint(self):
+		global commands
+		start = current_robot_location()
+		if len(commands) != 0:
+			start = commands[-1].waypoint	
+		quaternion = self.final_orientation(start)
+		return [(start[0][0], start[0][1], start[0][2]), (quaternion[0], quaternion[1], quaternion[2], quaternion[3])]
+
+	# calculates final position after completing desired turn
+	def final_orientation(self, position):
+		orientation = (position[1][0], position[1][1], position[1][2], position[1][3])
+		euler = tf.transformations.euler_from_quaternion(orientation)
+		new_yaw = euler[2] + math.radians(float(self.degrees))
+		return tf.transformations.quaternion_from_euler(euler[0],euler[1],new_yaw)
+
+	def update_goal(self, degrees):
+		self.degrees = degrees
+		self.original = self.command + " " + str(degrees)
+
+
+# object representing a command that tells the robot to patrol
+#
+# the patrol algorithm has the robot explore its environment in concentric polygons
+# it generates a list of waypoints for each polygon, and explores each in turn 
+# once all waypoints have been explored, it creates another, larger polygon
+# this repeats until none of the generated waypoints can be explored because they are
+#    all in unreachable locations 
+#
+#   - points: the number of waypoints to explore in each polygon
+#   - radius: the initial radius of the circle to be explored
+#   - increment: the number of meters the radius of each subsequent circle increases
+class Patrol(Command):
+
+	def __init__(self, msg, points, radius, increment):
+		self.points = points
+		self.radius = radius
+		self.increment = increment
+		super(Patrol, self).__init__("patrol", msg)
+	
+	def generate_waypoint(self):
+		return [(.0,0.0,0.0),(0.0,0.0,0.0,0.0)]
+
 
 if __name__ == '__main__':
-	
-	
+
 	rospy.init_node('commands_with_move_base')
 	rate = rospy.Rate(10)
-
-	# represents the current goal the robot is processing
+	# publisher for starting patrol
+	patrol_pub = rospy.Publisher('redis_cmd_listener', String, queue_size=10)
+	# each goal that is executed has a starting location that can be returned to
 	current_goal = None
-	# represents the current command the robot is processing
-	current_command = None
-	# the starting point of the first goal is the initial location of the robot
-	starting_point = [(0.0,0.0,0.0),(0.0,0.0,0.0,0.0)]
-	
-	
-	# simple action client to handle move_base cmds
-	client = actionlib.SimpleActionClient('move_base', MoveBaseAction)
-	# wait for an action to be sent to the server
-	client.wait_for_server()
-
-	# simple action client to handle rotation
+	starting_point = [(.0,0.0,0.0),(0.0,0.0,0.0,0.0)]
+	# move_base action client
+	move_base_client = actionlib.SimpleActionClient('move_base', MoveBaseAction)
+	move_base_client.wait_for_server()
+	# rotation action client
 	rotation_client = actionlib.SimpleActionClient('rotate', RotateAction)
-	# wait for an action to be sent
 	rotation_client.wait_for_server()
-	
-	# initial reference point should be robots initial location
-	reset_last_in()
 
 	while not rospy.is_shutdown():
-		while not patrol:
-			# handles cases where there are no waypoints in the deque
-			# if the robot is stopped
-			if stopped: 
-				if go_back and current_goal != None:
-					clear_queues()
-					undo(starting_point)
-					reset_all_control_booleans()
-					rospy.loginfo("[kirby_feedback go_back] returning to previous location")
-				# if it receives a command to cancel all or to cancel, nothing needs to be done
-				# because there are already 0 nav goals in the deque, so wait for a continue 
-				# command and then restart with an empty deque
-				elif (cancel_all or cancel) and restart: 
-					# after restart command, reset all control booleans and continue
-					clear_queues()
-					reset_all_control_booleans()
-					rospy.loginfo("[kirby_feedback cancelled_goal] cancelled goal")
-					rospy.loginfo("[kirby_feedback ready] waiting for commands")
-				# if a continue command is received without a cancel command then we 
-				elif restart: 
-					# if we have taken in a command, and it wasn't rotation
-					if not current_goal == None and not turn_stopped:
-						# re-add the goal we had been processing before being stopped to the 
-						# front of the deque 
-						readd_the_goal(current_goal)
-						# re-add the corresponding command to the front of the command deque for parity
-						readd_the_command(current_command)
-						# reset all control booleans and continue
-						reset_all_control_booleans()
-						# publish feedback 
-						rospy.loginfo("[kirby_feedback restarting] restarting current goal")
-					# if it was rotation that we paused, 
-					elif turn_stopped:
-						# re-add an updated version of the rotation goal
-						readd_partial_rotation()
-						# reset the control booleans
-						reset_all_control_booleans()
-						# publish feedback
-						rospy.loginfo("[kirby_feedback restarting] restarting current goal")
-					# if we actually haven't received any commands
-					else:
-						# reset the control booleans
-						reset_all_control_booleans()
-						# publish feedback that we are waiting for commands
-						rospy.loginfo("[kirby_feedback ready] waiting for commands")
-			# handles cases where there are waypoints in the deque
-			while not len(waypoints) == 0:
-				# if a stop command has been received
-				if stopped:
-					if go_back and current_goal != None:
-						clear_queues()
-						undo(starting_point)
-						reset_all_control_booleans()
-						rospy.loginfo("[kirby_feedback go_back] returning to previous location")
-					# if a cancel all command is received
+		while not patrolling:
+			while len(commands) != 0:
+				while stopped:
+					# cancels all pending actions and sends robot back to where it started this action
+					if go_back and current_goal != None: 
+						commands = []
+						commands.append(Navigate("go back", "go back", starting_point[0][0], starting_point[0][1]))
+						reset()
+					# cancels all pending actions
 					elif cancel_all:
-						# remove all planned waypoints from the deque
-						
-						# if a continue command is received
-						if restart: 
-							clear_queues()
-							# reset all control booleans and continue
-							reset_all_control_booleans()
-							# publish feedback
-							rospy.loginfo("[kirby_feedback cancelled_all] cancelled all planned goals")
-							rospy.loginfo("[kirby_feedback ready] waiting for commands")
-					# if a cancel command is received
+						commands = []
+						reset()
+						rospy.loginfo("[kirby_feedback cancelled_all] cancelled all planned goals")
+					# cancels the paused action 
 					elif cancel:
-						# if a continue command is received
-						if restart:
-							# if we had been turning, we haven't actually removed the current
-							# goal from the deques yet, so we do that
-							if turn_stopped:
-								waypoints.popleft()
-								commands.popleft() 
-							# new frame of reference should be the current position of the stopped robot
-							reset_last_in()
-							# clear all existing waypoints
-							clear_waypoints()
-							# reparse all unexecuted commands from new reference frame
-							for i in range(0,len(commands)):
-								parse(commands[i][0])
-							# reset all control booleans and continue
-							reset_all_control_booleans()
-							# publish feedback
-							rospy.loginfo("[kirby_feedback cancelled_goal] cancelled current goal")
-							rospy.loginfo("[kirby_feedback restarting] continuing execution of planned goals")
-					# if a restart command is received without any cancel commands
-					elif restart: 
-						# if we were doing something other than rotating
-						if not turn_stopped:
-							# re-add the paused goal and command to the fronts of the deques of waypoints
-							readd_the_goal(current_goal)
-							readd_the_command(current_command)
-						# if we were rotating
-						else:
-							# add a modified rotation goal
-							readd_partial_rotation()
-						# reset all control booleans and publish feedback
-						reset_all_control_booleans()
-						rospy.loginfo("[kirby_feedback restarting] restarting current goal")
-				# if a stop command hasn't been received 
-				else: 
-					# the next goal point is the point at the front of the waypoint deque
-					goal_point = waypoints[0]
-					# init a boolean to track whether this is rotation
-					is_rotation = False
-					# if we encounter the nonsense value, it is rotation
-					if goal_point[0][2] == -10 or goal_point[0][2] == 10:
-						is_rotation = True
-					# if it's rotation, we complete most of the turn with an action
-					# using cmd_vel, and then adjust for errors with a move base goal
-					if is_rotation:
-						# the number of degrees to be rotated according to the input cmd
-						deg = grab_amount.findall(commands[0][0])
-						# if no number was input, the default is 90 degrees
-						if len(deg) == 0:
-							degree = 90
-						else:
-							degree = deg[0]
-						# publish feedback (to left or right)
-						if goal_point[0][2] == -10:
-							rospy.loginfo("[kirby_feedback estimate_rotation] estimating a " + str(degree) + " degree turn to the right")
-						else: 
-							rospy.loginfo("[kirby_feedback estimate_rotation] estimating a " + str(degree) + " degree turn to the left")
-						# calculate number of full rotations completed in this cmd					
-						if (float(degree) % 360) == 0:	
-							extra_rot = -(float(degree)//360)
-						else: 
-							extra_rot = float(degree)//360
-						# the number of radians either + or - that need to be traversed to complete this rotation
-						rads = est_rads(goal_point, extra_rot)
-						# replace the nonsense value with a non-nonsense value
-						goal_point = reset_z(goal_point)
-					# create a moveBaseGoal from the waypoint
-					goal = goal_pose(goal_point)
-					# store the goal point in the current goal field
-					current_goal = goal_point
-					# store the command that the current goal came from
-					current_command = commands[0]
-					# stores the current position of the robot
-					starting_point = get_current()
-					# if the current command is rotation
-					if is_rotation:
-						# create a new Rotation goal
-						r_goal = RotateGoal()
-						# input the number of radians to turn
-						r_goal.rads_to_turn = rads
-						# send the goal to the rotation client
-						rotation_client.send_goal(r_goal, feedback_cb=rotate_feedback)
-						# wait for a result
-						rotation_client.wait_for_result()
-						# if the rotation succeeded
-						if rotation_client.get_state() == 3:
-							rospy.loginfo("[kirby_feedback success_estimate_rotation] successfully estimated rotation")
-							# reset the amount of rotation completed
-							reset_all_control_booleans()
-					# as long as we haven't paused
-					if not turn_stopped and not patrol: 				
-						# send the goal to the move base client
-						client.send_goal(goal)
-						# publish feedback on current status
-						rospy.loginfo(currently_doing(current_goal, current_command))
-						# wait for the result of the move base action
-						client.wait_for_result()
-						# remove the completed goal from the deque of waypoints
-						waypoints.popleft()
-						commands.popleft()
-						# if it was successful, log successful completion
-						if client.get_state() == 3: 
-							rospy.loginfo(generate_success(current_goal, current_command))
-						# if it was aborted
-						elif client.get_state() == 4:
-							# whether or not it's moved beyond the explore threshold
-							moved = check_explored(starting_point)
-							# if it has moved, publish feedback and wait for user input
-							if moved: 
-								rospy.loginfo("[kirby_feedback strayed] moved from expected path and failed to reach goal")
-								rospy.loginfo("[kirby_feedback help] user input is required: 'keep going' OR 'go back'")
-								while moved:
-									# if user says to continue, proceed with queued goals
-									if keep_going:
-										rospy.loginfo("[kirby_feedback restarting] continuing from new location")
-										reset_all_control_booleans()
-										moved = False
-									# if user says to go back to prior location
-									elif go_back:
-										# queue a goal of the prior location and continue
-										undo(starting_point)
-										rospy.loginfo("[kirby_feedback go_back] returning to previous location")
-										reset_all_control_booleans()
-										moved = False
-							# if the robot did not move, publish failure status
-							else:
-								rospy.loginfo("[kirby_feedback unreachable] unable to complete goal")
-		rate.sleep()
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+						commands.pop(0)
+						pending = commands
+						commands = []
+						reset()
+						# re-parse all actions from new reference point
+						for i in range(0, len(pending)):
+							parse(pending[i].original)
+						rospy.loginfo("[kirby_feedback cancelled_goal] cancelled current goal")
+						rospy.loginfo("[kirby_feedback restarting] continuing execution of planned goals")
+					# restarts the paused action
+					elif restart:
+						reset()
+				if len(commands) == 0:
+					break
+				current_goal = commands[0]
+				starting_point = current_robot_location()
+				# handles patrol actions
+				if isinstance(current_goal, Patrol):
+					patrol_pub.publish("start_patrol " + str(current_goal.points) + " " + str(current_goal.radius) + " " + str(current_goal.increment))
+					patrolling = True					
+					commands = []
+					break
+				# handles rotation actions
+				elif isinstance(current_goal, Rotate):
+					d = math.radians(float(current_goal.degrees))
+					rotate_goal = RotateGoal()
+					rotate_goal.rads_to_turn = d
+					rotation_client.send_goal(rotate_goal, feedback_cb=rotate_feedback)
+					rospy.loginfo("[kirby_feedback estimate_rotation] estimating a " + str(d) + " degree turn")
+					rotation_client.wait_for_result()
+					if rotation_client.get_state() == 3:
+						rospy.loginfo("[kirby_feedback success_estimate_rotation] successfully estimated rotation")
+					elif stopped:
+						break
+				# handles actions sent to move_base					
+				move_base_client.send_goal(create_goal(current_goal.waypoint))
+				rospy.loginfo(in_progress_message(current_goal))
+				move_base_client.wait_for_result()
+				if stopped:
+					break
+				commands.pop(0)
+				if move_base_client.get_state() == 3:
+					rospy.loginfo(success_message(current_goal))
+				elif move_base_client.get_state() == 4:
+					moved = check_movement(starting_point)
+					if moved:
+						rospy.loginfo("[kirby_feedback strayed] moved from expected path and failed to reach goal")
+						rospy.loginfo("[kirby_feedback help] user input is required: 'keep going' OR 'go back'")
+						while moved:
+							if keep_going:
+								rospy.loginfo("[kirby_feedback restarting] continuing from new location")
+								reset()
+								moved = False
+							elif go_back:
+								commands.insert(0, Navigate("go back", starting_point[0][0], starting_point[0][1]))
+								rospy.loginfo("[kirby_feedback go_back] returning to previous location")
+								reset()
+								moved = False
+					else: 
+						rospy.loginfo("[kirby_feedback unreachable] unable to complete goal")
+				rate.sleep()
