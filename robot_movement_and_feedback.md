@@ -53,17 +53,18 @@
 * If a continue command is received immediately after a stop command, the robot will simply continue with the goal it had been executing. If there are additional commands queued, it will execute them as normal once it finishes the current command. 
 
 ##### "cancel"
-* A cancel command can only be given after a stop command. It cancels the current goal that was being executed before it was puased. 
-* If only the current command is queued, then once the continue command is received, the robot will stay where it is, waiting for new commands. 
-* If more commands are queued, then the one that was paused is deleted, and all subsequent commands are re-parsed from the perspective of this new and unexpected location. When the robot receives a continue command it will proceed, from this new location, with all queued commands.
+* A cancel command must follow a 'stop' command.
+* It cancels the current goal that was being executed before it was puased. 
+* If only the current command is queued, the robot will stay where it is, waiting for new commands. 
+* If more commands are queued, then the one that was paused is deleted, and all subsequent commands are re-parsed from the perspective of this new and unexpected location. The robot will proceed, from this new location, with all queued commands.
 
 ##### "cancel all"
-* A cancel all command can only be given after a stop command. It cancels all goals in the queue, including the current one. When a continue command is received the robot will stay where it is, waiting for new commands. 
-
-* Note: a "continue" command must follow any stop, cancel, or cancel all command, in order to tell the robot to start listening for commands again. 
+* A cancel all command must follow a 'stop' command.
+* It cancels all goals in the queue, including the current one. The robot will stay where it is, waiting for new commands. 
 
 ##### "go back" 
-* a go back command can be given after a stop command. The robot will cancel its current goal and any queued goals and return to the location from which it started the most recent goal. From there it will wait for additional commands, as any queued commands have been cancelled. 
+* A go back command must follow a 'stop' command.
+* The robot will cancel any queued goals and return to the location from which it started the most recent goal. From there it will wait for additional commands. 
 
 #### Exploring Too Far: 
 
@@ -81,10 +82,10 @@
 	
 * The robot can also patrol/explore its environment. 
 * It will begin this behavior with a "patrol (points) (initial radius) (increment)" command
-	* A patrol command overwrites all existing commands. The robot will immediately stop any goal that it is executing, and cancel any queued goals in order to begin patrolling. 
+	* A patrol command can be queued like any other command. Once the robot reaches the patrol command in its queue of planned actions, it will begin patrolling. 
 * The robot explores in concentric "circles", visiting some fixed number of points along the edge of each circle. 
 	* It begins relatively near the origin, and the circles expand outward. 
-* If no parameters are passed in with a 'patrol' command, it will explore a default of 16 points around each circle. The first circle will have a radius of 1.5m centered at the origin, and the radius of each subsequent circle will be incremented by 1.0m. 
+* If no parameters are passed in with a 'patrol' command, it will explore a default of 8 points around each circle. The first circle will have a radius of 1.0m centered at the origin, and the radius of each subsequent circle will be incremented by 1.0m. 
 	* If parameters are passed in, all 3 must be specified. 
 		* The first is an integer representing the number of points to explore per circle
 		* The second represents the radius of the initial circle
@@ -111,6 +112,8 @@
 	* the x,y coordinate is the location that has been generated as the end goal, based on the direction the robot was facing when it started, and the number of meters it is meant to traverse. 
 * After successful completion of a go forward command: 
 	* "went forward <X>m to (x, y)"
+* If it receives a go forward command with more than one argument:
+	* "go forward commands only take one argument"
 
 ##### turn left/right:
 * After it begins the rotation estimation portion of a turn command:
@@ -123,7 +126,9 @@
 * At the end of the verification portion:
 	* "rotation verified"
 * If it receives a rotation command with a negative angle
-	* "invalid command, angle must be positive"
+	* "angle must be positive"
+* If it receives a rotation command with more than one argument
+	* "rotation commands only take one argument"
 
 ##### go to:
 * After it begins execution of a go to command:
@@ -147,10 +152,9 @@
 		* "terminating"
 * Once it completes one exploration circle
 	* "completed an exploration loop"
+* If it receives a patrol command with a number of arguments not equal to 3 or 0
+	* patrol must take 3 arguments or none at all"
 
-**note** 
-* any time patroling stops, the main movement node needs to know it can retake control and start listening for commands again, so it listens for a 'terminating' status and when it receives this, retakes control and publishes "waiting for commands". 
-* So a "waiting for commands" status after a "terminating" status signifies that the robot is ready to take in normal, non-patrol commands again. 
 
 ##### stop:
 * If the current goal is a rotation estimation
@@ -181,8 +185,8 @@
 
 * If a go back command is received after a stop command:
 	* "returning to previous location"
-	* Once the robot has made it back to the location:
-		* "returned to previous location"
+* Once the robot has made it back to the location:
+	* "returned to previous location"
 
 ##### failure: 
 * If the robot fails to make it to any given goal, he will check whether or not it has moved in an attempt to get there.
@@ -197,7 +201,13 @@
 		* "unable to complete goal"
 
 ##### invalid commands: 
-* If the robot receives an invalid/malformed command it publishes "invalid command" to the log. 
+* If the robot receives an invalid/malformed command it publishes an invalid message to the log. 
+* This can take several different forms, depending on the problem with the input message: 
+	* "invalid command, robot is paused"
+	* "invalid command, robot is patrolling"
+	* "robot must be stopped before a goal can be cancelled"
+	* "robot must be stopped before it can continue"
+	* "invalid command" 
 
 #### FEEDBACK CODES: 
 
@@ -227,6 +237,7 @@
 | COMPLETED_LOOP | the robot completed an exploration loop while patrolling
 | STOP_PATROL | the robot has received a command to stop patrolling 
 | FINISH_PATROL | the robot has no more unexplored waypoints, the patrol algorithm has finished
+| QUEUE | all commands that are currently in the robot's planned actions
 
 ---
 Summary of Commands
@@ -243,6 +254,7 @@ Summary of Commands
 | cancel all | cancel any and all queued actions | Can only be used after a stop command
 | go forward | move forward | Optional parameters can control the distance. Works within the constraints of navigability.
 | go back | cancels the current action and returns to the location the robot was in when it started the cancelled action | can only be used after a stop command
+| queue | the robot will publish feedback containing its current queue of planned actions
 | go back AND/OR keep going | possible responses to the robot's request for user input | these commands are only valid when robot requests user input. This will only happen if the robot moves from its original location in an attempt to find a path to a goal location, but ultimately determines that the goal location cannot be reached, and therefore the robot stops in an unexpected location. 
 ---
  
