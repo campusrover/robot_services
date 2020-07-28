@@ -5,7 +5,6 @@
     <arg name="queue_size" default="7"/>
     <arg name="lidar_slices" default="8"/>
     <arg name="comm" default="server"/>
-    <arg name="model" default="$(env TURTLEBOT3_MODEL)" doc="model type [burger, waffle, waffle_pi]"/>
     <!-- ROS parameterized redis server info-->
     <group if="$(eval arg('comm') == 'server')">
         <rosparam command="load" file="$(dirname)/redis_login.yaml"/>  <!--This file is availavle on the campusroveriv slack channel-->
@@ -28,9 +27,17 @@
         <arg name="ns" value="$(arg ns)"/>
     </include>
     <!-- SLAM -->
-    <include file="$(find turtlebot3_slam)/launch/turtlebot3_slam.launch">
-        <arg name="slam_methods" value="gmapping"/>
-        <arg name="model" value="$(arg model)"/>
-        <arg name="open_rviz" value="true"/>
-    </include>
+    <!-- Gmapping -->
+    <node pkg="gmapping" type="slam_gmapping" name="rs_slam_gmapping" output="screen">
+        <rosparam command="load" file="$(dirname)/slam.yaml" />
+    </node>
+    <!-- rviz, with custom settings -->
+    <node name="rviz" pkg="rviz" type="rviz" args="-d $(dirname)/rsrviz.rviz"/>
+    <!-- publish robot tfs to frames on body-->
+    <arg name="urdf_file" default="" />  <!-- the path to the robot's urdf file. leave blank using gazebo-->
+    <group if="$(eval arg('urdf_file') != '')">
+        <!-- If you use gazebo, this param is already set. for an IRL robot like gopigo3, pass the urdf_file arg-->
+        <param name="robot_description" command="$(arg urdf_file)" />
+    </group>
+    <node pkg="robot_state_publisher" name="robot_state_publisher2" type="robot_state_publisher" output="screen"/>
 </launch>
