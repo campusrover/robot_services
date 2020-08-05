@@ -37,7 +37,8 @@
     <arg name="urdf_file" default="" />  <!-- the path to the robot's urdf file. leave blank using gazebo-->
     <group if="$(eval arg('urdf_file') != '')">
         <!-- If you use gazebo, this param is already set. for an IRL robot like gopigo3, pass the urdf_file arg-->
-        <param name="robot_description" command="$(arg urdf_file)" />
+        <arg name="urdf" default="$(find xacro)/xacro  $(arg urdf_file)" />
+        <param name="robot_description" command="$(arg urdf)" />
     </group>
     <node pkg="robot_state_publisher" name="robot_state_publisher2" type="robot_state_publisher" output="screen"/>
 </launch>

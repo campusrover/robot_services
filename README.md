@@ -69,13 +69,17 @@ To easily spawn multiple fiducials to gazebo, try the [Gazebo Fiducial Spawner P
 * `queue_size` (int): *q*ueue *s*ize. The maximum length for queue-based keys like `Map`. defaults to 7
 * `comm` (string). Defaults to `server`. If set to any value besides server, then the redis server will be your local machine. Useful for debugging and not clogging up a remote redis server. 
 * `lidar_slices` (int): the number points desired from lidar data. Max value 360.
-* `urdf_file` the path to the urdf file of the robot that you are using. This is used to set the `robot_description` rosparam. if you are running robot_services alongside gazebo, then this arg does not need to be filled. If your robot's bringup already includes a urdf and robot_state_publisher, then this arg does not need to be filled. 
+* `urdf_file` the path to the urdf file of the robot that you are using. This is used to set the `robot_description` rosparam. if you are running robot_services alongside gazebo, then this arg does not need to be filled. If your robot's bringup already includes a urdf and robot_state_publisher, then this arg does not need to be filled. when specifying path, use this format: `urdf_file:='$(find <yourpackage>)/<pathtourdffile>'` **Note the single quotes
 
 Use `roslaunch robot_services maptest.launch` to test the map bridge on any map. A few samples are included in this repo and the performance is logged in test.launch. the python module Pillow is required for test.launch.
 
 ### redis_login.yaml
 
 to launch using a remote redis server, the file `redis_login.yaml` must be present in `/launch` and contain values for the rosparams `redis_server`, `redis_port` and `redis_pw`
+
+### slam.yaml
+
+This file contains parameters for gmapping. 
 
 ## Bridge Tools
 
