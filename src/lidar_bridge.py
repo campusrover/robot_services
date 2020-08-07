@@ -11,7 +11,7 @@ def scan_cb(msg):
     ranges = [min(first_slice)]
     s = slice_size/2
     while s+slice_size < len(msg.ranges):
-        ranges.append(min(msg.ranges[s:s+slice_size]))
+        ranges.append(round(min(msg.ranges[s:s+slice_size]), 4))
         s+=slice_size
 
     package = json.dumps(OrderedDict([
@@ -23,7 +23,6 @@ def scan_cb(msg):
     ]))
 
     redis.set(redis_key, str(package))
-    rospy.Rate(1).sleep()
 
 
 if __name__ == '__main__':
